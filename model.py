@@ -134,7 +134,7 @@ class physiology:
         The function update_cue() updates the cue object with the values of the environment
         """
         #simulation of values
-        #TO DO actual perception of environment
+        #TODO actual perception of environment
         self.cue.energy = mean(parent.sensor.food)
         self.cue.tegument = mean(parent.sensor.tegument)
         self.cue.integrity = mean(parent.sensor.US)
@@ -246,6 +246,7 @@ class nociceptor:
         """
         The function update() updates the nociceptors
         """
+        self.compute_noci()
         self.radiate()
 
 
@@ -254,7 +255,26 @@ class nociceptor:
         The function takes parent sensor US and computes speed of object approaching
         using TIME_SLEEP
         """
+        self.speed_nociceptor = [self.parent.sensor.diffUS[i]/TIME_SLEEP for i in range(N_NOCICEPTORS)]
 
+    def compute_circ(self):
+        """
+        The function computes the circular difference between the current and previous US sensor values, and
+        stores the result in the circ_nociceptor array
+        """
+        r = [i for i in range(N_US_SENSORS-1)]
+        r.append(1)
+        for i in range(N_US_SENSORS):
+            self.circ_nociceptor[i] = (abs(self.parent.sensor.US[i] - self.parent.sensor.prevUS[r[i]]))/TIME_SLEEP
+
+
+    def compute_noci(self):
+        """
+        It computes the nociceptor values by averaging the speed and circ nociceptor values.
+        """
+        self.compute_speed()
+        self.compute_circ()
+        self.nociceptor = [(self.speed_nociceptor[i] + self.circ_nociceptor[i])/2 for i in range(N_NOCICEPTORS)]
 
 
     def display(self):
@@ -289,6 +309,11 @@ class sensors:
         self.tegument = [0.0] *2 # tegument sensor
 
     def update(self):
+        """
+        The update function is called every time the robot is updated. It stores the previous values of the
+        robot, gets the new values, computes the difference between the new and old values, and computes the
+        food and tegument values
+        """
         #TODO get values of robot
         self.store_prev()
         if(SIMULATE_VALUES):
@@ -300,24 +325,31 @@ class sensors:
         self.compute_food()
         self.compute_tegument()
 
-
-
     def store_prev(self):
+        """
+        The function store_prev() stores the current values of the sensors in the previous values of the
+        sensors
+        """
         self.prevUS = self.US
         self.prevIR = self.IR
         self.prevGROUND = self.GROUND
             
     def compute_diff(self):
-        self.diffUS = [self.US[i]-self.prevUS[i] for i in range(N_US_SENSORS)]
-        self.diffIR = [self.IR[i]-self.prevIR[i] for i in range(N_IR_SENSORS)]
-        self.diffGROUND = [self.GROUND[i]-self.prevGROUND[i] for i in range(N_GROUND_SENSORS)]
+        """
+        It computes the difference between the current and previous sensor readings
+        """
+        self.diffUS = [abs(self.US[i]-self.prevUS[i]) for i in range(N_US_SENSORS)]
+        self.diffIR = [abs(self.IR[i]-self.prevIR[i]) for i in range(N_IR_SENSORS)]
+        self.diffGROUND = [abs(self.GROUND[i]-self.prevGROUND[i]) for i in range(N_GROUND_SENSORS)]
 
     def compute_food(self):
+        """
         #function that takes GROUND values and computes food value (0.0 to 1.0)
         # food resources ar represented as high values in the GROUND sensors
         # food is computed as the mean of the GROUND values 
         # if N_GROUND_SENSORS is pair, each tegument is computed as the mean of the half of sensors
         # else if N_GROUND_SENSORS is unpair, each tegument is computed as the mean of the half of sensors plus middle sensor
+        """
         if N_GROUND_SENSORS % 2 == 0:
             self.food[0] = mean(self.GROUND[0:N_GROUND_SENSORS//2])
             self.food[1] = mean(self.GROUND[N_GROUND_SENSORS//2:N_GROUND_SENSORS])
@@ -327,11 +359,13 @@ class sensors:
 
 
     def compute_tegument(self):
-        #function that takes GROUND values and computes tegument value (0.0 to 1.0)
+        """
+        function that takes GROUND values and computes tegument value (0.0 to 1.0)
         # tegument resources are represented as low values in the GROUND sensors
         # tegument is computed as the mean of the inverse of the GROUND values
         # if N_GROUND_SENSORS is pair, each tegument is computed as the mean of the half of sensors
         # else if N_GROUND_SENSORS is unpair, each tegument is computed as the mean of the half of sensors plus middle sensor
+        """
         if N_GROUND_SENSORS % 2 == 0:
             self.tegument[0] = 1.0 - mean(self.GROUND[0:N_GROUND_SENSORS//2])
             self.tegument[1] = 1.0 - mean(self.GROUND[N_GROUND_SENSORS//2:N_GROUND_SENSORS])
