@@ -23,8 +23,8 @@
 
 # Modules
 import random
-import matplotlib.pyplot as plt
-import numpy as np 
+import os
+import cstm_serial
 import time
 import math
 
@@ -32,7 +32,7 @@ import math
 # ----------------------------------------------------------------------------------------------------------------------
 SIMULATE_VALUES = True # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
-N_US_SENSORS = 8 # Number of UltraSonic Sensors.
+N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 8 # Number of InfraRed Sensors.
 N_GROUND_SENSORS = 4 # Number of Ground Sensors.
 N_NOCICEPTORS = 8 # Number of Nociceptors.
@@ -116,20 +116,22 @@ class Variable:
         print("----------------------------------------------------")
         print(self.name + " : " + self.get_value())
         print("----------------------------------------------------")
-        
-
-# The class `behavior` defines the robot and its attributes
-class behavior:
-    def __init__(self, var):
-        self.cue = 0.0 # cue associated with the behavior
-        self.mot = 0.0 # motivatin associated with the behavior
-        self.associated_var = var
     
-    def compute_mot(self):
-        """
-        The function computes the motivation to perform the action associated with the variable.
-        """
-        self.mot = self.associated_var.get_deficit() + (self.associated_var.get_deficit() * self.cue)
+# The class defines a sensor
+class sensors:
+    def __init__(self, name, size):
+        self.val = [0.0] * size 
+        self.name = name
+
+
+
+# The class `behavior` defines the behavior and its attributes
+class behavior:
+    def __init__(self, var, sensor):
+        self.cue = 0.0 # cue associated with the behavior
+        self.associated_var = var
+        self.mot = motivation(var, self.cue, sensor) # motivation associated with the behavior
+
 
     def display(self):
         """
@@ -137,8 +139,31 @@ class behavior:
         """
         print("----------------------------------------------------")
         print("Cue : " + str(self.cue))
-        print("Mot : " + str(self.mot))
+        print("Mot : " + str(self.mot.get_val()))
         print("----------------------------------------------------")
+
+
+# The class `motivation` defines a motivation and its attributes
+class motivation:
+    def __init__(self, var, stimulus, drive):
+        self.val = 0.0 # value of the motivation
+        self.controlled_var = var
+        self.stimulus = stimulus
+        self.drive = drive
+
+    def compute(self):
+        """
+        The function computes the motivation to perform the action associated with the variable.
+        """
+        self.val = self.controlled_var.get_deficit() + (self.controlled_var.get_deficit() * self.stimulus)
+
+    def get_val(self):
+        """
+        The function get_val() returns the value of the motivation.
+        
+        @return The value of the instance variable val.
+        """
+        return self.val
 
 
 # The class motors has two attributes, left and right, which are both floats. 
@@ -150,7 +175,7 @@ class motors:
 
 # The class `robot` defines the robot and its attributes
 class robot:
-    def __init__(self,name):
+    def __init__(self,name, port, baudrate):
         """
         A class that defines the robot.
         @brief Class used to define the robot.
@@ -158,20 +183,30 @@ class robot:
         """
         #robot infos
         self.name = name
-        self.socket = "XXXXXX"
+        self.port = port
+        self.baudrate = baudrate
+    
+        #motors
+        self.motors = motors()
+
 
         #physiological variables
         self.energy = Variable("energy", 0.0, 0.8, 1.0)
-        self.tegument = Variable("tegument", 0.0, 0.9, 1.0)
+        self.water = Variable("water", 0.0, 0.9, 1.0)
         self.integrity = Variable("integrity", 0.0, 0.9, 1.0)
 
-        #behaviors
-        self.eat = behavior(self.energy)
-        self.groom = behavior(self.tegument)
-        self.avoid = behavior(self.integrity)
+        #sensors
+        self.us = sensors("us", N_US_SENSORS)
 
-        #motors
-        self.motors = motors()
+        #behaviors
+        self.eat = behavior(self.energy, motors)
+        self.drink = behavior(self.water, motors)
+        self.avoid = behavior(self.integrity, motors)
+
+        #robot serial com
+        self.com = cstm_serial.SerialPort(self.port, self.baudrate)
+
+
 
     def display(self):
         """
@@ -181,17 +216,59 @@ class robot:
         print("Robot name      : " + self.name)
         print("Socket          : " + self.socket)
         print("Energy          : " + "{0:0.2f}".format(self.energy.get_value()) +      " | deficit :  "    + "{0:0.2f}".format(self.energy.get_deficit()))
-        print("Tegument        : " + "{0:0.2f}".format(self.tegument.get_value()) +    " | deficit :  "    + "{0:0.2f}".format(self.tegument.get_deficit()))
+        print("Water           : " + "{0:0.2f}".format(self.water.get_value()) +    " | deficit :  "    + "{0:0.2f}".format(self.water.get_deficit()))
         print("Integrity       : " + "{0:0.2f}".format(self.integrity.get_value()) +   " | deficit :  "    + "{0:0.2f}".format(self.integrity.get_deficit()))
         print("----------------------------------------------------")
 
     def update(self):
         pass
 
-# It creates an object of the class `robot` and assigns it to the variable `khepera`.
-khepera = robot("khepera-iv")
 
-for i in range(50):
-    khepera.update()
-    khepera.display()
+    def decode(self, data):
+        """
+        A function that take data as argumeent and decode it
+        first letter of sentense data is an identifier and then command is applied
+        @param data, data string received from serial, data is a string with coomma separator
+        @return decoded, data string decoded
+        """
+        decoded = data.split(",")
+        return decoded
+        
+
+    def get_data(self):
+        """
+        The function get_data() returns the data of the robot.
+        """
+        return self.com.read_until('\n')
+
+    def send_data(self, data):
+        """
+        function that send data via serial port
+        """
+        self.com.write(data + '\n')
+
+    def analyze_data(self, data):
+        """
+        A function that take decoded data and, depending on first letter, apply command
+        @param data, data string decoded from serial
+        """
+        if data[0]=="g":
+            #1 2 3 4 5
+            pass
+
+
+# It creates an object of the class `robot` and assigns it to the variable `khepera`.
+khepera = robot("khepera-iv", '/dev/ttyS1', 115200)
+khepera.send_data('D,100,100')
+
+for i in range(1000):
+    print(i)
+    khepera.send_data('G')
+    print(khepera.get_data())
     time.sleep(TIME_SLEEP)
+
+
+# for i in range(50):
+#     khepera.update()
+#     #khepera.display()
+#     time.sleep(TIME_SLEEP)
