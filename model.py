@@ -33,9 +33,9 @@ import math
 SIMULATE_VALUES = True # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
-N_IR_SENSORS = 8 # Number of InfraRed Sensors.
-N_GROUND_SENSORS = 4 # Number of Ground Sensors.
+N_IR_SENSORS = 12 # Number of IR Sensors.
 N_NOCICEPTORS = 8 # Number of Nociceptors.
+MANUAL = 0 # Manual control.
 # ----------------------------------------------------------------------------------------------------------------------
 
 # Python program to get average of a list
@@ -119,9 +119,38 @@ class Variable:
     
 # The class defines a sensor
 class sensors:
-    def __init__(self, name, size):
+    def __init__(self, name, size, s_char, r_char, min, max, inv, robot):
         self.val = [0.0] * size 
         self.name = name
+        self.size = size
+        self.s_char = s_char
+        self.r_char = r_char
+        self.min = min
+        self.max = max
+        self.inv = inv # True if the sensor is inverted (the greater the value, the smaller the data)
+        self.robot = robot
+
+    def update(self):
+        """
+        This function updates the value of the sensor.
+        """
+        success = 0
+        while(not success):
+            self.robot.send_data(self.s_char)
+            data = self.robot.get_data()
+            data.replace('\r\n', '')
+            if(data != None):
+                data = self.robot.decode(data)
+                if(data[0] == self.r_char):
+                    success=1
+                    for i in range(self.size):
+                        if self.inv:
+                            self.val[i] = 1.0 - ((float(data[i+1])-self.min) / (self.max-self.min))
+                        else:
+                            self.val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))
+                
+
+        
 
 
 
@@ -168,10 +197,90 @@ class motivation:
 
 # The class motors has two attributes, left and right, which are both floats. 
 class motors:
-    def __init__(self):
+    def __init__(self,robot):
         self.left = 0.0 # speed of left motor
         self.right = 0.0  # speed of right motor
+        self.robot = robot
 
+    def set(self, left, right):
+        """
+        The function takes two floats as arguments and sets the speed of the left and right motors.
+        
+        @param left The speed of the left motor.
+        @param right The speed of the right motor.
+        """
+        self.left = left
+        self.right = right
+
+    def set_left(self, left):
+        """
+        The function takes a float as argument and sets the speed of the left motor.
+        
+        @param left The speed of the left motor.
+        """
+        self.left = left
+
+    def set_right(self, right):
+        """
+        The function takes a float as argument and sets the speed of the right motor.
+        
+        @param right The speed of the right motor.
+        """
+        self.right = right
+
+    def emergency_stop(self):
+        self.left = 0.0
+        self.right = 0.0
+        self.drive()
+
+    def turn_right(self):
+        self.left = -0.5
+        self.right = 0.5
+        
+    def turn_left(self):
+        self.left = 0.5
+        self.right = -0.5
+
+    def backward(self):
+        self.left = -0.5
+        self.right = -0.5
+
+    def stop(self):
+        self.left = 0.0
+        self.right = 0.0
+
+    def forward(self):
+        self.left = 1.0
+        self.right = 1.0
+
+    def drive(self):
+        """
+        The function takes a left and right speed as arguments and returns a new instance of the class
+        """
+        if(self.left != 0.0):
+            left = self.left * 2400 - 1200
+        else :
+            left = 0
+        if(self.right != 0.0):
+            right = self.right * 2400 - 1200
+        else :
+            right = 0
+        print("l : " + str(left) + " r : " + str(right))
+        self.robot.send_data('D,' + str(left) + ',' + str(right))
+                
+    def drive_lr(self, left, right):
+        if(left != 0.0):
+            left =  left * 2400 - 1200
+        if(right != 0.0):
+            right = right * 2400 - 1200
+        self.robot.send_data('D,' + str(left) + ',' + str(right))
+
+
+    def update(self):
+        """
+        The function updates the speed of the left and right motors.
+        """
+        self.drive()
 
 # The class `robot` defines the robot and its attributes
 class robot:
@@ -187,7 +296,7 @@ class robot:
         self.baudrate = baudrate
     
         #motors
-        self.motors = motors()
+        self.motors = motors(self)
 
 
         #physiological variables
@@ -196,7 +305,9 @@ class robot:
         self.integrity = Variable("integrity", 0.0, 0.9, 1.0)
 
         #sensors
-        self.us = sensors("us", N_US_SENSORS)
+        self.us = sensors("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, self)
+        self.prox = sensors("prox", N_IR_SENSORS, 'N', 'n', 0, 1024, 1, self)
+        self.amb = sensors("ambiant", N_IR_SENSORS, 'O', 'o', 0, 1024, 0, self)
 
         #behaviors
         self.eat = behavior(self.energy, motors)
@@ -204,7 +315,7 @@ class robot:
         self.avoid = behavior(self.integrity, motors)
 
         #robot serial com
-        self.com = cstm_serial.SerialPort(self.port, self.baudrate)
+        self.com = cstm_serial.SerialPort(port, baudrate)
 
 
 
@@ -214,14 +325,26 @@ class robot:
         """
         print("----------------------------------------------------")
         print("Robot name      : " + self.name)
-        print("Socket          : " + self.socket)
+        print("Serial          :" + self.port + " | bps :" + str(self.baudrate))
         print("Energy          : " + "{0:0.2f}".format(self.energy.get_value()) +      " | deficit :  "    + "{0:0.2f}".format(self.energy.get_deficit()))
         print("Water           : " + "{0:0.2f}".format(self.water.get_value()) +    " | deficit :  "    + "{0:0.2f}".format(self.water.get_deficit()))
         print("Integrity       : " + "{0:0.2f}".format(self.integrity.get_value()) +   " | deficit :  "    + "{0:0.2f}".format(self.integrity.get_deficit()))
         print("----------------------------------------------------")
+        print("MOTORS          : " +  "{0:0.2f}".format(self.motors.left) + " | " + "{0:0.2f}".format(self.motors.right))
+        print("----------------------------------------------------")
+        print("US              : ", ["{0:0.2f}".format(i) for i in self.us.val])
+        print("PROX            : ", ["{0:0.2f}".format(i) for i in self.prox.val])
+        print("AMBIANT LIGHT   : ", ["{0:0.2f}".format(i) for i in self.amb.val])
+        print("----------------------------------------------------")
 
     def update(self):
-        pass
+        """
+        The update function updates the state of the robot
+        """
+        self.us.update()
+        self.prox.update()
+        self.amb.update()
+        self.motors.update()
 
 
     def decode(self, data):
@@ -238,6 +361,7 @@ class robot:
     def get_data(self):
         """
         The function get_data() returns the data of the robot.
+        @return The data of the robot via serial port.
         """
         return self.com.read_until('\n')
 
@@ -247,24 +371,33 @@ class robot:
         """
         self.com.write(data + '\n')
 
-    def analyze_data(self, data):
-        """
-        A function that take decoded data and, depending on first letter, apply command
-        @param data, data string decoded from serial
-        """
-        if data[0]=="g":
-            #1 2 3 4 5
-            pass
-
-
+ 
 # It creates an object of the class `robot` and assigns it to the variable `khepera`.
 khepera = robot("khepera-iv", '/dev/ttyS1', 115200)
-khepera.send_data('D,100,100')
-
+user_input = 'e'
 for i in range(1000):
+    if MANUAL :
+        print("z,q,s,d to controll - a to stop : ")
+        #user_input = raw_input()
+        if user_input == 'a':
+            khepera.motors.emergency_stop()
+            break
+        elif user_input == 'e':
+            khepera.motors.stop()
+        elif user_input == 'z':
+            khepera.motors.forward()
+        elif user_input == 'q':
+            khepera.motors.turn_left()
+        elif user_input == 's':
+            khepera.motors.backward()
+        elif  user_input == 'd':
+            khepera.motors.turn_right()
+        else : 
+            pass
+    
     print(i)
-    khepera.send_data('G')
-    print(khepera.get_data())
+    khepera.update()
+    khepera.display()
     time.sleep(TIME_SLEEP)
 
 
