@@ -15,9 +15,8 @@
 # - This model is built originaly for Khepera-IV but is meant to be adaptable to any robots.
 #
 # @section todo_doxygen_example TODO
-# - Physiological variables.
-# - Motor control.  
-# - Main program.
+# - Behaviors.
+# - Motivations.
 #
 # Copyright (c) 2022 Louis L'Haridon.  All rights reserved.
 
@@ -37,6 +36,16 @@ N_IR_SENSORS = 12 # Number of IR Sensors.
 N_NOCICEPTORS = 8 # Number of Nociceptors.
 MANUAL = 0 # Manual control.
 # ----------------------------------------------------------------------------------------------------------------------
+
+# Python for Winner takes all
+def WTA(a, b, c):
+    if (a.val >= b.val) and (a.val >= c.val):
+        wta = a
+    elif (b.val >= a.val) and (b.val >= c.val):
+        wta = b
+    else:
+        wta = c       
+    return wta
 
 # Python program to get average of a list
 def mean(lst):
@@ -60,8 +69,6 @@ def normalize(list):
             return [float(i) for i in list]
     else:
         return [0.0 for i in list]
-
-
 
 # The class variable defines a phhysiological variable
 class Variable:
@@ -147,36 +154,46 @@ class sensors:
                         if self.inv:
                             self.val[i] = 1.0 - ((float(data[i+1])-self.min) / (self.max-self.min))
                         else:
-                            self.val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))
-                
-
-        
-
-
+                            self.val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))                
 
 # The class `behavior` defines the behavior and its attributes
 class behavior:
-    def __init__(self, var, sensor):
-        self.cue = 0.0 # cue associated with the behavior
+    def __init__(self, var, motors):
         self.associated_var = var
-        self.mot = motivation(var, self.cue, sensor) # motivation associated with the behavior
+        self.motors = motors
 
+    def update_associated_var(self, val):
+        self.associated_var = self.get_associated_var + val 
 
-    def display(self):
-        """
-        The function takes a cue and a mot as arguments and returns a new instance of the class
-        """
-        print("----------------------------------------------------")
-        print("Cue : " + str(self.cue))
-        print("Mot : " + str(self.mot.get_val()))
-        print("----------------------------------------------------")
+    #TODO
+    def can_consume(self):
+        return 0
+
+    def behave(self):
+        if(self.can_consume()):
+            self.consumatory()
+        else:
+            self.appetitive()
+
+    #TODO
+    def appetitive(self):
+        left = 0.5
+        right = 0.5
+        self.motors.set(left, right)
+        pass
+
+    #TODO
+    def consumatory(self):
+        self.update_associated_var(0.15)
 
 
 # The class `motivation` defines a motivation and its attributes
 class motivation:
-    def __init__(self, var, stimulus, drive):
+    def __init__(self, var, bhv, stimulus, drive):
+        self.cue = 0.0 # cue of the motivation
         self.val = 0.0 # value of the motivation
         self.controlled_var = var
+        self.associated_bhv = bhv
         self.stimulus = stimulus
         self.drive = drive
 
@@ -194,12 +211,11 @@ class motivation:
         """
         return self.val
 
-
 # The class motors has two attributes, left and right, which are both floats. 
 class motors:
     def __init__(self,robot):
-        self.left = 0.0 # speed of left motor
-        self.right = 0.0  # speed of right motor
+        self.left = 0.0 # speed of left motor (from -1.0 to 1.0)
+        self.right = 0.0  # speed of right motor (from -1.0 to 1.0)
         self.robot = robot
 
     def set(self, left, right):
@@ -258,21 +274,20 @@ class motors:
         The function takes a left and right speed as arguments and returns a new instance of the class
         """
         if(self.left != 0.0):
-            left = self.left * 2400 - 1200
+            left = self.left * 1200
         else :
             left = 0
         if(self.right != 0.0):
-            right = self.right * 2400 - 1200
+            right = self.right * 1200
         else :
             right = 0
-        print("l : " + str(left) + " r : " + str(right))
         self.robot.send_data('D,' + str(left) + ',' + str(right))
                 
     def drive_lr(self, left, right):
         if(left != 0.0):
-            left =  left * 2400 - 1200
+            left =  left * 1200
         if(right != 0.0):
-            right = right * 2400 - 1200
+            right = right * 1200
         self.robot.send_data('D,' + str(left) + ',' + str(right))
 
 
@@ -298,26 +313,28 @@ class robot:
         #motors
         self.motors = motors(self)
 
-
         #physiological variables
         self.energy = Variable("energy", 0.0, 0.8, 1.0)
-        self.water = Variable("water", 0.0, 0.9, 1.0)
+        self.temperature = Variable("temperature", 0.0, 0.9, 1.0)
         self.integrity = Variable("integrity", 0.0, 0.9, 1.0)
 
         #sensors
         self.us = sensors("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, self)
-        self.prox = sensors("prox", N_IR_SENSORS, 'N', 'n', 0, 1024, 1, self)
-        self.amb = sensors("ambiant", N_IR_SENSORS, 'O', 'o', 0, 1024, 0, self)
+        self.prox = sensors("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, self)
+        self.amb = sensors("ambiant", N_IR_SENSORS, 'O', 'o', 0, 1023, 0, self)
 
         #behaviors
-        self.eat = behavior(self.energy, motors)
-        self.drink = behavior(self.water, motors)
-        self.avoid = behavior(self.integrity, motors)
+        self.eat = behavior(self.energy, self.motors)
+        self.heat = behavior(self.temperature, self.motors)
+        self.avoid = behavior(self.integrity, self.motors)
+
+        #motivation
+        self.hunger = motivation(self.energy, self.eat, self.amb , self.us) 
+        self.cold = motivation(self.temperature, self.heat, self.amb , self.us) 
+        self.danger = motivation(self.integrity, self.avoid, self.amb , self.us) 
 
         #robot serial com
         self.com = cstm_serial.SerialPort(port, baudrate)
-
-
 
     def display(self):
         """
@@ -327,7 +344,7 @@ class robot:
         print("Robot name      : " + self.name)
         print("Serial          :" + self.port + " | bps :" + str(self.baudrate))
         print("Energy          : " + "{0:0.2f}".format(self.energy.get_value()) +      " | deficit :  "    + "{0:0.2f}".format(self.energy.get_deficit()))
-        print("Water           : " + "{0:0.2f}".format(self.water.get_value()) +    " | deficit :  "    + "{0:0.2f}".format(self.water.get_deficit()))
+        print("Temperature     : " + "{0:0.2f}".format(self.temperature.get_value()) +    " | deficit :  "    + "{0:0.2f}".format(self.temperature.get_deficit()))
         print("Integrity       : " + "{0:0.2f}".format(self.integrity.get_value()) +   " | deficit :  "    + "{0:0.2f}".format(self.integrity.get_deficit()))
         print("----------------------------------------------------")
         print("MOTORS          : " +  "{0:0.2f}".format(self.motors.left) + " | " + "{0:0.2f}".format(self.motors.right))
@@ -341,11 +358,22 @@ class robot:
         """
         The update function updates the state of the robot
         """
+        #get sensors values
         self.us.update()
         self.prox.update()
         self.amb.update()
-        self.motors.update()
 
+        #update physiological variables
+        self.energy.update_deficit()
+        self.temperature.update_deficit()
+        self.integrity.update_deficit()
+
+        #update and select behaviors
+        selected_mot = WTA(self.hunger, self.cold, self.danger)
+        selected_mot.associated_bhv.behave()
+
+        #motor control
+        self.motors.update()
 
     def decode(self, data):
         """
@@ -357,7 +385,6 @@ class robot:
         decoded = data.split(",")
         return decoded
         
-
     def get_data(self):
         """
         The function get_data() returns the data of the robot.
@@ -371,37 +398,38 @@ class robot:
         """
         self.com.write(data + '\n')
 
- 
+# MAIN CODE
+# ----------------------------------------------------------------------------------------------------------------------
 # It creates an object of the class `robot` and assigns it to the variable `khepera`.
 khepera = robot("khepera-iv", '/dev/ttyS1', 115200)
 user_input = 'e'
 for i in range(1000):
-    if MANUAL :
-        print("z,q,s,d to controll - a to stop : ")
-        #user_input = raw_input()
-        if user_input == 'a':
-            khepera.motors.emergency_stop()
-            break
-        elif user_input == 'e':
-            khepera.motors.stop()
-        elif user_input == 'z':
-            khepera.motors.forward()
-        elif user_input == 'q':
-            khepera.motors.turn_left()
-        elif user_input == 's':
-            khepera.motors.backward()
-        elif  user_input == 'd':
-            khepera.motors.turn_right()
-        else : 
-            pass
-    
-    print(i)
-    khepera.update()
-    khepera.display()
-    time.sleep(TIME_SLEEP)
-
-
-# for i in range(50):
-#     khepera.update()
-#     #khepera.display()
-#     time.sleep(TIME_SLEEP)
+    try:
+        if MANUAL :
+            print("z,q,s,d to controll - a to stop : ")
+            #user_input = raw_input()
+            if user_input == 'a':
+                khepera.motors.emergency_stop()
+                break
+            elif user_input == 'e':
+                khepera.motors.stop()
+            elif user_input == 'z':
+                khepera.motors.forward()
+            elif user_input == 'q':
+                khepera.motors.turn_left()
+            elif user_input == 's':
+                khepera.motors.backward()
+            elif  user_input == 'd':
+                khepera.motors.turn_right()
+            else : 
+                pass
+        
+        print(i)
+        khepera.update()
+        khepera.display()
+        time.sleep(TIME_SLEEP)
+    except KeyboardInterrupt:
+        khepera.motors.emergency_stop()
+        print("Emergency stop")
+        break
+# ----------------------------------------------------------------------------------------------------------------------
