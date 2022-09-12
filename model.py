@@ -39,9 +39,9 @@ MANUAL = 0 # Manual control.
 
 # Python for Winner takes all
 def WTA(a, b, c):
-    if (a.val >= b.val) and (a.val >= c.val):
+    if (a.intensity >= b.intensity) and (a.intensity >= c.intensity):
         wta = a
-    elif (b.val >= a.val) and (b.val >= c.val):
+    elif (b.intensity >= a.intensity) and (b.intensity >= c.intensity):
         wta = b
     else:
         wta = c       
@@ -74,10 +74,13 @@ def normalize(list):
 class Variable:
     def __init__(self, name, value, min_target, max_target):
         self.name = name
-        self.value = 1.0
+        self.value = value
         self.min_target = min_target
         self.max_target = max_target
         self.deficit = 0.0
+
+    def __iter__(self):
+        return self
 
     def set_value(self, value):
         """
@@ -112,9 +115,9 @@ class Variable:
         Otherwise, the deficit is zero.
         """
         if self.value < self.min_target :
-            self.deficit = self.value - self.min_target
+            self.deficit = abs(self.value - self.min_target)
         elif self.value > self.max_target :
-            self.deficit = self.value - self.max_target
+            self.deficit = abs(self.value - self.max_target)
         else:
             self.deficit = 0.0
 
@@ -124,6 +127,52 @@ class Variable:
         print(self.name + " : " + self.get_value())
         print("----------------------------------------------------")
     
+# The class defines a raw sensor
+class raw_sensors:
+    def __init__(self, name, size, s_char, r_char, robot):
+        self.val = [0.0] * size 
+        self.name = name
+        self.size = size
+        self.s_char = s_char
+        self.r_char = r_char
+        self.robot = robot
+
+    def set_size(self, size):
+        """
+        This function sets the size of the sensor.
+        
+        @param size The size of the sensor.
+        """
+        self.size = size
+
+    def slice(self, start, end):
+        """
+        This function returns a slice of the sensor.
+        
+        @param start The start of the slice.
+        @param end The end of the slice.
+        @return The slice of the sensor.
+        """
+        self.val=self.val[start:end]
+        self.size = len(self.val)
+
+    def update(self):
+        """
+        This function updates the value of the sensor.
+        """
+        success = 0
+        while(not success):
+            self.robot.send_data(self.s_char)
+            data = self.robot.get_data()
+            data.replace('\r\n', '')
+            if(data != None):
+                data = self.robot.decode(data)
+                if(data[0] == self.r_char):
+                    success=1
+                    for i in range(self.size):
+                        self.val[i] = float(data[i+1])
+
+
 # The class defines a sensor
 class sensors:
     def __init__(self, name, size, s_char, r_char, min, max, inv, robot):
@@ -177,16 +226,15 @@ class sensors:
 
 # The class `behavior` defines the behavior and its attributes
 class behavior:
-    def __init__(self, var, motors, drive):
-        """
-        It creates a class called "behavior" with the attributes "associated_var" and "motors".
-        
+    def __init__(self, var, motors, stimulus, treshold):
+        """        
         @param var The variable that the behavior is associated with.
         @param motors a list of motors that are associated with the variable
         """
         self.associated_var = var
-        self.associated_drive = drive
+        self.associated_stimulus = stimulus
         self.motors = motors
+        self.treshold = treshold
 
     def update_associated_var(self, val):
         """
@@ -195,24 +243,32 @@ class behavior:
         
         @param val the value to be added to the associated variable
         """
-        self.associated_var = self.associated_var + val 
+        if self.associated_var.get_value() + val > 1.0:
+            self.associated_var.set_value(1.0)
+        else:
+            self.associated_var.set_value(self.associated_var.get_value() + val)
 
     def can_consume(self, treshold):
         """
-        The function can_consume takes in associated drive and check if mean is above a treshold
+        The function can_consume takes in associated stimulus and check if mean is above a treshold
         @param treshold the treshold to check if the mean is above
         @return 1 if resource can be consumed, 0 otherwise
         """
-        if(mean(self.associated_drive) > treshold):
+        if mean(self.associated_stimulus) > treshold:
             return 1
         else:
             return 0
 
-
     def behave(self):
-        if(self.can_consume()):
+        if(self.can_consume(self.treshold)):
+            print("----------------------------------------------------")
+            print("-------------------CONSU----------------------------")
+            print("----------------------------------------------------")
             self.consumatory()
         else:
+            print("----------------------------------------------------")
+            print("--------------------APETI---------------------------")
+            print("----------------------------------------------------")
             self.appetitive()
 
     def appetitive(self):
@@ -223,14 +279,14 @@ class behavior:
         """
         left_drive = 0.0
         right_drive = 0.0
-        for i in range(len(self.associated_drive)/2):
-            left_drive = left_drive + self.associated_drive[i]
-            right_drive = right_drive + self.associated_drive[i+len(self.associated_drive)/2]
-        left_drive = left_drive / (len(self.associated_drive)/2)
-        right_drive = right_drive / (len(self.associated_drive)/2)
-        left = left_drive * 2 - 1.0
-        right = right_drive * 2 - 1.0
-        self.motors.set_speed(left, right)
+        for i in range(len(self.associated_stimulus)/2):
+            left_drive = left_drive + self.associated_stimulus[i]
+            right_drive = right_drive + self.associated_stimulus[i+len(self.associated_stimulus)/2]
+        left_drive = left_drive / (len(self.associated_stimulus)/2)
+        right_drive = right_drive / (len(self.associated_stimulus)/2)
+        left = left_drive * 2 - 0.5
+        right = right_drive * 2 - 0.5
+        self.motors.set(left, right)
         
     def consumatory(self):
         """
@@ -244,27 +300,29 @@ class behavior:
 
 # The class `motivation` defines a motivation and its attributes
 class motivation:
-    def __init__(self, var, bhv, stimulus, drive):
+    def __init__(self, controlled_var, drive, stimulus):
         self.cue = 0.0 # cue of the motivation
-        self.val = 0.0 # value of the motivation
-        self.controlled_var = var
-        self.associated_bhv = bhv
-        self.stimulus = stimulus
+        self.intensity = 0.0 # intensity of the motivation
+        self.controlled_var = controlled_var
         self.drive = drive
+        self.stimulus = stimulus
 
     def compute(self):
         """
         The function computes the motivation to perform the action associated with the variable.
         """
-        self.val = self.controlled_var.get_deficit() + (self.controlled_var.get_deficit() * self.stimulus)
+        self.intensity = self.controlled_var.get_deficit() + (self.controlled_var.get_deficit() * mean(self.stimulus))
 
-    def get_val(self):
+    def get_intensity(self):
         """
         The function get_val() returns the value of the motivation.
         
         @return The value of the instance variable val.
         """
-        return self.val
+        return self.intensity
+
+    def update(self):
+        self.compute()
 
 # The class motors has two attributes, left and right, which are both floats. 
 class motors:
@@ -369,25 +427,37 @@ class robot:
         self.motors = motors(self)
 
         #physiological variables
-        self.energy = Variable("energy", 0.0, 0.8, 1.0)
-        self.temperature = Variable("temperature", 0.0, 0.9, 1.0)
-        self.integrity = Variable("integrity", 0.0, 0.9, 1.0)
+        self.energy = Variable("energy", 0.91, 0.9, 1.0)
+        self.temperature = Variable("temperature", 0.45, 0.4, 0.5)
+        self.integrity = Variable("integrity", 1.0, 0.95, 1.0)
+
+        #raw sensors for debug
+        self.r_us = raw_sensors("r_us", N_US_SENSORS, 'G', 'g', self)
+        self.r_ir = raw_sensors("r_ir", N_IR_SENSORS, 'N', 'n', self)
+        self.r_ir.slice(0,8) ###get only prox sensors
+        self.r_ir.set_size(8)
+        self.r_gnd = raw_sensors("r_gnd", N_IR_SENSORS, 'N', 'n', self)
+        self.r_gnd.slice(8,12) ###get only prox sensors
+        self.r_ir.set_size(4)
 
         #sensors
         self.us = sensors("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, self)
-        self.prox = sensors("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, self)
-        self.gnd = sensors("ambiant", N_IR_SENSORS, 'N', 'n', 450, 1023, 1, self)
+        self.prox = sensors("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, self)
+        self.prox.slice(0,8) ###get only prox sensors
+        self.prox.set_size(8)
+        self.gnd = sensors("ambiant", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, self)
         self.gnd.slice(8,12) ###get only ground sensors
+        self.gnd.set_size(4)
 
         #behaviors
-        self.eat = behavior(self.energy, self.motors, self.gnd.val)
-        self.heat = behavior(self.temperature, self.motors, self.gnd.val)
-        self.avoid = behavior(self.integrity, self.motors, self.us)
+        self.eat = behavior(self.energy, self.motors, self.gnd.val, 0.5)
+        self.heat = behavior(self.temperature, self.motors, [1.0-x for x in self.gnd.val], 0.5)
+        self.avoid = behavior(self.integrity, self.motors, self.prox.val ,0.7)
 
         #motivation
-        self.hunger = motivation(self.energy, self.eat, self.gnd , self.us) 
-        self.cold = motivation(self.temperature, self.heat, self.gnd , self.us) 
-        self.danger = motivation(self.integrity, self.avoid, self.gnd , self.us) 
+        self.hunger = motivation(self.energy, self.eat, self.gnd.val) 
+        self.cold = motivation(self.temperature, self.heat, [1.0-x for x in self.gnd.val]) 
+        self.danger = motivation(self.integrity, self.avoid, self.us.val) 
 
         #robot serial com
         self.com = cstm_serial.SerialPort(port, baudrate)
@@ -403,30 +473,78 @@ class robot:
         print("Temperature     : " + "{0:0.2f}".format(self.temperature.get_value()) +    " | deficit :  "    + "{0:0.2f}".format(self.temperature.get_deficit()))
         print("Integrity       : " + "{0:0.2f}".format(self.integrity.get_value()) +   " | deficit :  "    + "{0:0.2f}".format(self.integrity.get_deficit()))
         print("----------------------------------------------------")
-        print("MOTORS          : " +  "{0:0.2f}".format(self.motors.left) + " | " + "{0:0.2f}".format(self.motors.right))
+        print("RAW US          : ", ["{0:0.0f}".format(i) for i in self.r_us.val])
+        print("RAW PROX        : ", ["{0:0.0f}".format(i) for i in self.r_ir.val])
+        print("RAW GND SENSORS : ", ["{0:0.0f}".format(i) for i in self.r_gnd.val])
         print("----------------------------------------------------")
         print("US              : ", ["{0:0.2f}".format(i) for i in self.us.val])
         print("PROX            : ", ["{0:0.2f}".format(i) for i in self.prox.val])
-        print("GROUND SENSORS   : ", ["{0:0.2f}".format(i) for i in self.gnd.val])
+        print("GROUND SENSORS  : ", ["{0:0.2f}".format(i) for i in self.gnd.val])
         print("----------------------------------------------------")
+        print("ENERGY SENSORS  : ", ["{0:0.2f}".format(i) for i in self.gnd.val])
+        print("TEMP SENSORS    : ", ["{0:0.2f}".format(i) for i in  [1.0-x for x in self.gnd.val]])
+        print("----------------------------------------------------")
+        print("HUNGER cue      : ", mean(self.hunger.stimulus))
+        print("COLD cue        : ", mean(self.cold.stimulus))
+        print("DANGER cue      : ", mean(self.danger.stimulus))
+        print("----------------------------------------------------")
+        print("HUNGER MOT      : ", self.hunger.intensity)
+        print("COLD MOT        : ", self.cold.intensity)
+        print("DANGER MOT      : ", self.danger.intensity)
+        print("----------------------------------------------------")
+        print("MOTORS          : " +  "{0:0.2f}".format(self.motors.left) + " | " + "{0:0.2f}".format(self.motors.right))
+        print("----------------------------------------------------")
+
+    def is_alive(self):
+        """
+        The function is_alive returns true if the robot is alive.
+        """
+        if(self.energy.get_value() > 0.0 and self.temperature.get_value() > 0.0 and self.integrity.get_value() > 0.0):
+            return True
+        else:
+            return False
 
     def update(self):
         """
         The update function updates the state of the robot
         """
+        #RAW update 
+        self.r_us.update()
+        self.r_ir.update()
+        self.r_gnd.update()
+
         #get sensors values
         self.us.update()
         self.prox.update()
         self.gnd.update()
+
+        #has the robot a shock ?
+        shock = 0
+        for i in range(0, len(self.prox.val)):
+            if(self.prox.val[i] > 0.85):
+                shock+= 1
+        if shock > 1:
+            self.integrity.set_value(self.integrity.get_value() - 0.05)
+
+        #update values
+        self.energy.set_value(self.energy.get_value() - 0.01)
+        self.temperature.set_value(self.temperature.get_value() - 0.005)
+
+
 
         #update physiological variables
         self.energy.update_deficit()
         self.temperature.update_deficit()
         self.integrity.update_deficit()
 
+        #update motivations
+        self.hunger.update()
+        self.cold.update()
+        self.danger.update()
+
         #update and select behaviors
         selected_mot = WTA(self.hunger, self.cold, self.danger)
-        selected_mot.associated_bhv.behave()
+        selected_mot.drive.behave()
 
         #motor control
         self.motors.update()
@@ -459,7 +577,8 @@ class robot:
 # It creates an object of the class `robot` and assigns it to the variable `khepera`.
 khepera = robot("khepera-iv", '/dev/ttyS1', 115200)
 user_input = 'e'
-for i in range(1000):
+i=0
+while(khepera.is_alive()):
     try:
         if MANUAL :
             print("z,q,s,d to controll - a to stop : ")
@@ -479,13 +598,14 @@ for i in range(1000):
                 khepera.motors.turn_right()
             else : 
                 pass
-        
         print(i)
         khepera.update()
         khepera.display()
-        time.sleep(TIME_SLEEP)
+        time.sleep(1)
+        i=i+1
     except KeyboardInterrupt:
         khepera.motors.emergency_stop()
         print("Emergency stop")
         break
+khepera.motors.emergency_stop()
 # ----------------------------------------------------------------------------------------------------------------------
