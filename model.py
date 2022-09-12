@@ -106,7 +106,7 @@ class Variable:
     def update_deficit(self):
         """
         If the value is less than the minimum target, the deficit is the value minus the minimum target. 
-        
+    
         If the value is greater than the maximum target, the deficit is the value minus the maximum target. 
         
         Otherwise, the deficit is zero.
@@ -137,6 +137,25 @@ class sensors:
         self.inv = inv # True if the sensor is inverted (the greater the value, the smaller the data)
         self.robot = robot
 
+    def set_size(self, size):
+        """
+        This function sets the size of the sensor.
+        
+        @param size The size of the sensor.
+        """
+        self.size = size
+
+    def slice(self, start, end):
+        """
+        This function returns a slice of the sensor.
+        
+        @param start The start of the slice.
+        @param end The end of the slice.
+        @return The slice of the sensor.
+        """
+        self.val=self.val[start:end]
+        self.size = len(self.val)
+
     def update(self):
         """
         This function updates the value of the sensor.
@@ -158,16 +177,37 @@ class sensors:
 
 # The class `behavior` defines the behavior and its attributes
 class behavior:
-    def __init__(self, var, motors):
+    def __init__(self, var, motors, drive):
+        """
+        It creates a class called "behavior" with the attributes "associated_var" and "motors".
+        
+        @param var The variable that the behavior is associated with.
+        @param motors a list of motors that are associated with the variable
+        """
         self.associated_var = var
+        self.associated_drive = drive
         self.motors = motors
 
     def update_associated_var(self, val):
-        self.associated_var = self.get_associated_var + val 
+        """
+        The function takes in a value, adds it to the value of the associated variable, and then updates the
+        associated variable with the new value
+        
+        @param val the value to be added to the associated variable
+        """
+        self.associated_var = self.associated_var + val 
 
-    #TODO
-    def can_consume(self):
-        return 0
+    def can_consume(self, treshold):
+        """
+        The function can_consume takes in associated drive and check if mean is above a treshold
+        @param treshold the treshold to check if the mean is above
+        @return 1 if resource can be consumed, 0 otherwise
+        """
+        if(mean(self.associated_drive) > treshold):
+            return 1
+        else:
+            return 0
+
 
     def behave(self):
         if(self.can_consume()):
@@ -175,17 +215,32 @@ class behavior:
         else:
             self.appetitive()
 
-    #TODO
     def appetitive(self):
-        left = 0.5
-        right = 0.5
-        self.motors.set(left, right)
-        pass
-
-    #TODO
+        """
+        The function appettitive takes associated drive to determine left and right speed
+        first half of associated drive represents left drive and second right drive
+        The greater the drive is, the faster the opposite wheel will be
+        """
+        left_drive = 0.0
+        right_drive = 0.0
+        for i in range(len(self.associated_drive)/2):
+            left_drive = left_drive + self.associated_drive[i]
+            right_drive = right_drive + self.associated_drive[i+len(self.associated_drive)/2]
+        left_drive = left_drive / (len(self.associated_drive)/2)
+        right_drive = right_drive / (len(self.associated_drive)/2)
+        left = left_drive * 2 - 1.0
+        right = right_drive * 2 - 1.0
+        self.motors.set_speed(left, right)
+        
     def consumatory(self):
+        """
+        The function consumatory update thte assoociated var and lauch consumatory animation
+        """
         self.update_associated_var(0.15)
-
+        self.motors.turn_left()
+        time.sleep(0.2)
+        self.motors.turn_right()
+        time.sleep(0.2)
 
 # The class `motivation` defines a motivation and its attributes
 class motivation:
@@ -321,17 +376,18 @@ class robot:
         #sensors
         self.us = sensors("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, self)
         self.prox = sensors("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, self)
-        self.amb = sensors("ambiant", N_IR_SENSORS, 'O', 'o', 0, 1023, 0, self)
+        self.gnd = sensors("ambiant", N_IR_SENSORS, 'N', 'n', 450, 1023, 1, self)
+        self.gnd.slice(8,12) ###get only ground sensors
 
         #behaviors
-        self.eat = behavior(self.energy, self.motors)
-        self.heat = behavior(self.temperature, self.motors)
-        self.avoid = behavior(self.integrity, self.motors)
+        self.eat = behavior(self.energy, self.motors, self.gnd.val)
+        self.heat = behavior(self.temperature, self.motors, self.gnd.val)
+        self.avoid = behavior(self.integrity, self.motors, self.us)
 
         #motivation
-        self.hunger = motivation(self.energy, self.eat, self.amb , self.us) 
-        self.cold = motivation(self.temperature, self.heat, self.amb , self.us) 
-        self.danger = motivation(self.integrity, self.avoid, self.amb , self.us) 
+        self.hunger = motivation(self.energy, self.eat, self.gnd , self.us) 
+        self.cold = motivation(self.temperature, self.heat, self.gnd , self.us) 
+        self.danger = motivation(self.integrity, self.avoid, self.gnd , self.us) 
 
         #robot serial com
         self.com = cstm_serial.SerialPort(port, baudrate)
@@ -351,7 +407,7 @@ class robot:
         print("----------------------------------------------------")
         print("US              : ", ["{0:0.2f}".format(i) for i in self.us.val])
         print("PROX            : ", ["{0:0.2f}".format(i) for i in self.prox.val])
-        print("AMBIANT LIGHT   : ", ["{0:0.2f}".format(i) for i in self.amb.val])
+        print("GROUND SENSORS   : ", ["{0:0.2f}".format(i) for i in self.gnd.val])
         print("----------------------------------------------------")
 
     def update(self):
@@ -361,7 +417,7 @@ class robot:
         #get sensors values
         self.us.update()
         self.prox.update()
-        self.amb.update()
+        self.gnd.update()
 
         #update physiological variables
         self.energy.update_deficit()
