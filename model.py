@@ -54,6 +54,18 @@ def mean(lst):
     else:
         return 0
 
+def invert(list):
+    """
+    The function invert inverts a list of values.
+    and returns a float list.
+    """
+    l=[]
+    for i in list:
+        print(i)
+        l.append(1.0-i)
+        print(l)
+    return l
+
 def normalize(list):
     """
     The function normalize normalizes a list of values.
@@ -226,7 +238,7 @@ class sensors:
 
 # The class `behavior` defines the behavior and its attributes
 class behavior:
-    def __init__(self, var, motors, stimulus, treshold):
+    def __init__(self, var, motors, stimulus, treshold, apeti_consu):
         """        
         @param var The variable that the behavior is associated with.
         @param motors a list of motors that are associated with the variable
@@ -235,6 +247,7 @@ class behavior:
         self.associated_stimulus = stimulus
         self.motors = motors
         self.treshold = treshold
+        self.apeti_consu = apeti_consu
 
     def update_associated_var(self, val):
         """
@@ -260,14 +273,20 @@ class behavior:
             return 0
 
     def behave(self):
-        if(self.can_consume(self.treshold)):
-            print("----------------------------------------------------")
-            print("-------------------CONSU----------------------------")
-            print("----------------------------------------------------")
-            self.consumatory()
+        if(self.apeti_consu):
+            if(self.can_consume(self.treshold)):
+                print("----------------------------------------------------")
+                print("-------------------CONSU----------------------------")
+                print("----------------------------------------------------")
+                self.consumatory()
+            else:
+                print("----------------------------------------------------")
+                print("--------------------APETI---------------------------")
+                print("----------------------------------------------------")
+                self.appetitive()
         else:
             print("----------------------------------------------------")
-            print("--------------------APETI---------------------------")
+            print("--------------------AVOID---------------------------")
             print("----------------------------------------------------")
             self.appetitive()
 
@@ -434,11 +453,11 @@ class robot:
         #raw sensors for debug
         self.r_us = raw_sensors("r_us", N_US_SENSORS, 'G', 'g', self)
         self.r_ir = raw_sensors("r_ir", N_IR_SENSORS, 'N', 'n', self)
-        self.r_ir.slice(0,8) ###get only prox sensors
+        self.r_ir.slice(0,8) ###get only raw prox sensors
         self.r_ir.set_size(8)
         self.r_gnd = raw_sensors("r_gnd", N_IR_SENSORS, 'N', 'n', self)
-        self.r_gnd.slice(8,12) ###get only prox sensors
-        self.r_ir.set_size(4)
+        self.r_gnd.slice(8,12) ###get only raw ground sensors
+        self.r_gnd.set_size(4)
 
         #sensors
         self.us = sensors("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, self)
@@ -448,19 +467,45 @@ class robot:
         self.gnd = sensors("ambiant", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, self)
         self.gnd.slice(8,12) ###get only ground sensors
         self.gnd.set_size(4)
+        self.inv_gnd = sensors("ambiant", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, self)
+        self.inv_gnd.slice(8,12) ###get only ground sensors
+        self.inv_gnd.set_size(4)
 
         #behaviors
-        self.eat = behavior(self.energy, self.motors, self.gnd.val, 0.5)
-        self.heat = behavior(self.temperature, self.motors, [1.0-x for x in self.gnd.val], 0.5)
-        self.avoid = behavior(self.integrity, self.motors, self.prox.val ,0.7)
+        self.eat = behavior(self.energy, self.motors, self.gnd.val, 0.5, 1)
+        self.heat = behavior(self.temperature, self.motors, self.inv_gnd.val, 0.5, 1)
+        self.avoid = behavior(self.integrity, self.motors, self.prox.val ,0.7, 0)
 
         #motivation
         self.hunger = motivation(self.energy, self.eat, self.gnd.val) 
-        self.cold = motivation(self.temperature, self.heat, [1.0-x for x in self.gnd.val]) 
+        self.cold = motivation(self.temperature, self.heat, self.inv_gnd.val)
         self.danger = motivation(self.integrity, self.avoid, self.us.val) 
 
         #robot serial com
         self.com = cstm_serial.SerialPort(port, baudrate)
+
+        #info to store file
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        #append .dat to timestr
+        self.filename = "louis/res/" + timestr + ".csv"   
+        file = open(self.filename, 'a+')
+        file.write("time,val_energy,val_temperature,val_integrity,def_energy,def_temperature,def_integirty,cue_hunger,cue_cold,cue_danger,mot_hunger,mot_cold,mot_danger,motor_l,motor_r\n")
+        file.close()
+        self.iter = 0
+        
+
+
+    def save(self):
+        self.iter = self.iter + 1
+        with open(self.filename, "a+") as file:
+            file.write(str(self.iter) + ",")
+            file.write("{0:0.2f}".format(self.energy.get_value()) + "," + "{0:0.2f}".format(self.temperature.get_value()) + "," + "{0:0.2f}".format(self.integrity.get_value()))
+            file.write("," + "{0:0.2f}".format(self.energy.get_deficit()) + "," + "{0:0.2f}".format(self.temperature.get_deficit()) + "," + "{0:0.2f}".format(self.integrity.get_deficit()))
+            file.write("," + str(mean(self.hunger.stimulus)) + "," + str(mean(self.cold.stimulus)) + "," + str(mean(self.danger.stimulus)))
+            file.write("," + str(self.hunger.intensity) + "," + str(self.cold.intensity) + "," + str(self.danger.intensity))
+            file.write("," + str(self.motors.left) + "," + str(self.motors.right))
+            file.write('\n')
+
 
     def display(self):
         """
@@ -482,7 +527,7 @@ class robot:
         print("GROUND SENSORS  : ", ["{0:0.2f}".format(i) for i in self.gnd.val])
         print("----------------------------------------------------")
         print("ENERGY SENSORS  : ", ["{0:0.2f}".format(i) for i in self.gnd.val])
-        print("TEMP SENSORS    : ", ["{0:0.2f}".format(i) for i in  [1.0-x for x in self.gnd.val]])
+        print("TEMP SENSORS    : ", ["{0:0.2f}".format(i) for i in  self.inv_gnd.val])
         print("----------------------------------------------------")
         print("HUNGER cue      : ", mean(self.hunger.stimulus))
         print("COLD cue        : ", mean(self.cold.stimulus))
@@ -517,6 +562,7 @@ class robot:
         self.us.update()
         self.prox.update()
         self.gnd.update()
+        self.inv_gnd.update()
 
         #has the robot a shock ?
         shock = 0
@@ -524,7 +570,7 @@ class robot:
             if(self.prox.val[i] > 0.85):
                 shock+= 1
         if shock > 1:
-            self.integrity.set_value(self.integrity.get_value() - 0.05)
+            self.integrity.set_value(self.integrity.get_value() - 0.01)
 
         #update values
         self.energy.set_value(self.energy.get_value() - 0.01)
@@ -548,6 +594,9 @@ class robot:
 
         #motor control
         self.motors.update()
+
+        #save data
+        self.save()
 
     def decode(self, data):
         """
@@ -601,7 +650,7 @@ while(khepera.is_alive()):
         print(i)
         khepera.update()
         khepera.display()
-        time.sleep(1)
+        time.sleep(TIME_SLEEP)
         i=i+1
     except KeyboardInterrupt:
         khepera.motors.emergency_stop()
