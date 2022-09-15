@@ -39,7 +39,7 @@ MANUAL = 0 # Manual control.
 
 
 # Python program to get average of a list
-def mean(lst : list):
+def mean(lst: list):
     """
     It returns the mean of a list of numbers.
     
@@ -65,7 +65,7 @@ def invert(list):
     
     return l
 
-def normalize(list : list):
+def normalize(list: list):
     """
     The function normalize normalizes a list of values.
     and returns a float list.
@@ -101,7 +101,7 @@ class Motors:
         """
         return self.right
 
-    def set(self, left : float, right : float):
+    def set(self, left: float, right: float):
         """
         The function takes two floats as arguments and sets the speed of the left and right motors.
         
@@ -111,7 +111,7 @@ class Motors:
         self.left = left
         self.right = right
 
-    def set_left(self, left :float):
+    def set_left(self, left: float):
         """
         The function takes a float as argument and sets the speed of the left motor.
         
@@ -119,7 +119,7 @@ class Motors:
         """
         self.left = left
 
-    def set_right(self, right : float):
+    def set_right(self, right: float):
         """
         The function takes a float as argument and sets the speed of the right motor.
         
@@ -166,7 +166,7 @@ class Motors:
             right = 0
         self.robot.send_data('D,' + str(left) + ',' + str(right))
                 
-    def drive_lr(self, left : float, right : float):
+    def drive_lr(self, left: float, right: float):
         """
         The function takes a left and right speed as arguments and returns a new instance of the class
         @param left : float the speed of the left motor from -1.0 to 1.0
@@ -187,7 +187,7 @@ class Motors:
 
 # The class variable defines a phhysiological variable
 class Variable:
-    def __init__(self, name : str, value : float, ideal : float, margin : float, decrease : bool, step : float):
+    def __init__(self, name: str, value: float, ideal: float, margin: float, decrease: bool, step: float):
         self.name = name
         self.value = value
         self.ideal = ideal
@@ -199,7 +199,7 @@ class Variable:
     def __iter__(self):
         return self
 
-    def set_value(self, value : float):
+    def set_value(self, value: float):
         """
         This function takes a value and sets the value of the object to that value.
         
@@ -267,7 +267,7 @@ class Variable:
     
 # The class defines a sensor
 class Sensor:
-    def __init__(self, name : str , size : int, s_char : str, r_char : str, min : int, max : int, inv : bool, robot):
+    def __init__(self, name: str , size: int, s_char: str, r_char: str, min: int, max: int, inv: bool, robot):
         self.raw_val = [0] * size 
         self.norm_val = [0.0] * size 
         self.name = name
@@ -295,7 +295,7 @@ class Sensor:
         """
         return self.norm_val
 
-    def set_size(self, size : int):
+    def set_size(self, size: int):
         """
         This function sets the size of the sensor.
         
@@ -303,7 +303,7 @@ class Sensor:
         """
         self.size = size
 
-    def slice(self, start : int, end : int):
+    def slice(self, start: int, end: int):
         """
         This function returns a slice of the sensor.
         
@@ -339,7 +339,7 @@ class Sensor:
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
-    def  __init__(self, name : str, data : float, min_val : float, max_val : float, inv : bool):
+    def  __init__(self, name: str, data: float, min_val: float, max_val: float, inv: bool):
         self.name = name
         self.data = data
         self.size = len(data)
@@ -384,7 +384,7 @@ class Stimulus:
 
 # The class `Effect` defines an effect of a behavior
 class Effect:
-    def __init__(self, name : str, var : Variable, decrease : bool, step : float):
+    def __init__(self, name: str, var: Variable, decrease: bool, step: float):
         self.name = name
         self.var = var
         self.decrease = decrease
@@ -417,7 +417,7 @@ class Effect:
 
 # The class `behavior` defines the behavior and its attributes
 class Behavior:
-    def __init__(self, name : str, motors : Motors, stimulus : Stimulus, treshold : float, apeti_consu : bool):
+    def __init__(self, name: str, motors: Motors, stimulus: Stimulus, treshold: float, apeti_consu: bool):
         """        
         @param var The variable that the behavior is associated with.
         @param motors a list of motors that are associated with the variable
@@ -429,7 +429,7 @@ class Behavior:
         self.apeti_consu = apeti_consu
         self.effects = [Effect]
 
-    def add_effect(self, effect : Effect):
+    def add_effect(self, effect: Effect):
         """
         This function adds an effect to the behavior.
         
@@ -438,7 +438,7 @@ class Behavior:
         self.effects.append(effect)
 
 
-    def can_consume(self, treshold : float):
+    def can_consume(self, treshold: float):
         """
         The function can_consume takes in associated stimulus and check if mean is above a treshold
         @param treshold the treshold to check if the mean is above
@@ -513,7 +513,7 @@ class Behavior:
 
 # The class `Drive` defines the drive and its attributes`
 class Drive:
-    def __init__(self, name : str, increase_decrease : bool, associated_var : Variable):
+    def __init__(self, name: str, increase_decrease: bool, associated_var: Variable):
         self.name = name
         self.increase_decrease = increase_decrease
         self.associated_var = associated_var
@@ -521,7 +521,7 @@ class Drive:
 
 # The class `motivation` defines a motivation and its attributes
 class Motivation:
-    def __init__(self, name : str, controlled_var: Variable, stimulus : Stimulus):
+    def __init__(self, name: str, controlled_var: Variable, stimulus: Stimulus):
         self.name = name
         self.intensity = 0.0 # intensity of the motivation
         self.controlled_var = controlled_var
@@ -550,7 +550,7 @@ class Motivation:
         """
         return self.name
 
-    def set_stimulus(self, stimulus : Stimulus):
+    def set_stimulus(self, stimulus: Stimulus):
         """
         > The function `set_stimulus` takes a `Stimulus` object as an argument and assigns it to the
         `stimulus` attribute of the `Neuron` object
@@ -577,7 +577,7 @@ class Motivation:
 
 # The class `robot` defines the robot and its attributes
 class Robot:
-    def __init__(self,name : str, port : str, baudrate : str):
+    def __init__(self,name: str, port: str, baudrate: str):
         """
         A class that defines the robot.
         @brief Class used to define the robot.
@@ -603,14 +603,14 @@ class Robot:
         self.com = cstm_serial.SerialPort(port, baudrate)
 
         
-    def add_variable(self, variable : Variable):
+    def add_variable(self, variable: Variable):
         """
         The function takes a variable as argument and adds it to the list of variables.
         @param variable The variable to add.
         """
         self.variables.append(variable)
 
-    def add_sensor(self, sensor : Sensor):
+    def add_sensor(self, sensor: Sensor):
         """
         The function takes a sensor as argument and adds it to the list of sensors.
         @param sensor The sensor to add.
@@ -624,14 +624,14 @@ class Robot:
         """
         self.behaviors.append(behavior)
     
-    def add_motivation(self, motivation : Motivation):
+    def add_motivation(self, motivation: Motivation):
         """
         The function takes a motivation as argument and adds it to the list of motivations.
         @param motivation The motivation to add.
         """
         self.motivations.append(motivation)
     
-    def add_stimulus(self, stimulus : Stimulus):
+    def add_stimulus(self, stimulus: Stimulus):
         """
         The function takes a stimulus as argument and adds it to the list of stimuli.
         @param stimulus The stimulus to add.
@@ -675,7 +675,7 @@ class Robot:
         """
         return self.motors
 
-    def get_var_by_name(self, name : str):
+    def get_var_by_name(self, name: str):
         """
         The function takes a variable name as argument and returns the variable.
         @param name The name of the variable.
@@ -685,7 +685,7 @@ class Robot:
                 return var
         return None
         
-    def get_sensor_by_name(self, name : str):
+    def get_sensor_by_name(self, name: str):
         """
         The function takes a sensor name as argument and returns the sensor.
         @param name The name of the sensor.
@@ -695,7 +695,7 @@ class Robot:
                 return sensor
         return None
 
-    def get_stimulus_by_name(self, name : str):
+    def get_stimulus_by_name(self, name: str):
         """
         The function takes a stimulus name as argument and returns the stimulus.
         @param name The name of the stimulus.
@@ -705,7 +705,7 @@ class Robot:
                 return stimulus
         return None
 
-    def get_behavior_by_name(self, name : str):
+    def get_behavior_by_name(self, name: str):
         """
         The function takes a behavior name as argument and returns the behavior.
         @param name The name of the behavior.
@@ -715,7 +715,7 @@ class Robot:
                 return behavior
         return None
 
-    def get_motivation_by_name(self, name : str):
+    def get_motivation_by_name(self, name: str):
         """
         The function takes a motivation name as argument and returns the motivation.
         @param name The name of the motivation.
@@ -726,7 +726,7 @@ class Robot:
         return None
 
 
-    def write_header_data(self, filename : str):
+    def write_header_data(self, filename: str):
         """
         This function writes the header data to the file
         
@@ -750,7 +750,7 @@ class Robot:
         return iter+1        
 
 
-    def save(self, filename : str, iter : int):
+    def save(self, filename: str, iter: int):
         """ 
         The function saves the robot in a file.
         @param filename The name of the file.
@@ -791,7 +791,7 @@ class Robot:
         else:
             return False
 
-    def has_shock(self, var : Variable, stim : Stimulus) -> bool:
+    def has_shock(self, var: Variable, stim: Stimulus) -> bool:
         """
         The function has_shock returns true if the robot has a shock.
         It impacts choosed variable with a malus
@@ -858,7 +858,7 @@ class Robot:
 
 ############################################################################################################
 
-def define_khepera():
+def define_khepera()-> Robot:
     """
     The function defines a robot named "khepera-iv" with a serial port "/dev/ttyS1" and a baud rate of
     115200. It has two variables, "energy" and "temperature", and three sensors, "us", "prox", and
@@ -885,11 +885,11 @@ def define_khepera():
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1.0, True))
     #add motivations and their drive
     khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("foood"))) 
-    khepera.get_motivation_by_name("increase_energy").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))    
+    khepera.get_motivation_by_name("increase_energy").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))  
+
     khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
     khepera.get_motivation_by_name("coldness").set_drive(Drive("decrease_temperature",True, khepera.get_var_by_name("temperature")))
-
-    #add behaviors
+    #add behaviors and their effects
     khepera.add_behavior(Behavior("eat", khepera.get_var_by_name("energy"),khepera.get_motors(),khepera.get_sensor_by_name("gnd"), 0.5, True))
     khepera.get_behavior_by_name("eat").add_effect(Effect("increase_energy", khepera.get_var_by_name("energy"), False, 0.1))
 
@@ -900,7 +900,7 @@ def define_khepera():
 
     return khepera
 
-def display(robot : Robot):
+def display(robot: Robot):
     """
     It displays the robot's attributes
     
