@@ -121,8 +121,8 @@ class SerialPort(object):
                 if n == until:
                     done = True
             except OSError as error :
-                print(error)
-                print("File descriptor is not associated with any terminal device")
+                return buf
+                pass
         return buf
 
     def write(self, str):
