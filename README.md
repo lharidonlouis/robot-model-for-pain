@@ -1,5 +1,5 @@
 # Robot model for pain
-Basic bio-inspired pain model for autonomous robot in python 
+Basic model for autonomous robot in python, with pain emotion modeling. Work used to study pain and emotions with social and autonomous robots. 
 
 ## Installation
 As the robot we use is a khepera-IV we use inbuilt server client to communicate with the robot.
