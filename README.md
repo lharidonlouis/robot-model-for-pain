@@ -9,7 +9,7 @@ Modified version of server is in the folder server. To install it, compile it wi
 ```
 make server
 ```
-Ensuring you have installed the khepera-IV libraries see [here for more infos](https://ftp.k-team.com/KheperaIV/software/Gumstix%20COM%20Y/UserManual/Khepera%20IV%20User%20Manual%204.x.pdf)
+Make you have installed the khepera-IV libraries, see [here for more infos](https://ftp.k-team.com/KheperaIV/software/Gumstix%20COM%20Y/UserManual/Khepera%20IV%20User%20Manual%204.x.pdf).
 
 Upload the compiled server, model.py and cstm_serial.py into the robot (see library for infos)
 
