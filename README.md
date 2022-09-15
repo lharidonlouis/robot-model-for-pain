@@ -18,7 +18,7 @@ A python serial library functional within khepera is provided in cstm_serial.py.
 ## Changing robot ?
 This model is built originaly for Khepera-IV but is meant to be adaptable to any robots.
 The model is meant to communicate with robot via serial port.
-If you want to change the robot see Model.Motors.drive() and Model.ensors.update()
+If you want to change the robot see ``Model.Motors.drive()`` and ``Model.ensors.update()``
 
 ## run
 
