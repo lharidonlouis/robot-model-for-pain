@@ -1,11 +1,12 @@
 ##
 # @file model.py
 #
-# @brief Simple bio-inspired pain model fo Khepera IV robot.
+# @brief Simple bio-inspired pain model for Khepera IV robot.
 #
 # @author  Louis L'Haridon
 # @date    2022/07/02
-# @version 0.1
+# @last update    2022/09/15
+# @version 0.2
 #
 # @section description_doxygen_example Description
 # In a Two Resources Problem (TRP), the robot has to choose between two resources to maintain its viability. 
@@ -13,10 +14,12 @@
 #
 # @section notes_doxygen_example Notes
 # - This model is built originaly for Khepera-IV but is meant to be adaptable to any robots.
+# - The model is meant to communicate with robot via serial port.
+# - If you want to change the robot see Motors.drive() and Sensors.update()
 #
 # @section todo_doxygen_example TODO
-# - Behaviors.
-# - Motivations.
+# - Debug values.
+# - Check for stimuli and drive.
 #
 # Copyright (c) 2022 Louis L'Haridon.  All rights reserved.
 
@@ -379,33 +382,61 @@ class Stimulus:
     
 
 
+# The class `Effect` defines an effect of a behavior
+class Effect:
+    def __init__(self, name : str, var : Variable, decrease : bool, step : float):
+        self.name = name
+        self.var = var
+        self.decrease = decrease
+        self.step = step
+    
+    def get_name(self):
+        """
+        This function returns the name of the effect.
+        
+        @return The name of the effect.
+        """
+        return self.name
+
+    def impact(self):
+        """
+        It takes a variable, a step size, and a boolean value, and then creates a function that will either
+        increase or decrease the variable by the step size
+        """
+        if self.decrease:
+            if self.var.get_value() - self.step > 0.0:
+                self.var.set_value(self.var.get_value() - self.step)
+            else:
+                self.var.set_value(0.0)
+        else:
+            if self.var.get_value() + self.step < 1.0:
+                self.var.set_value(self.var.get_value() + self.step)
+            else:
+                self.var.set_value(1.0)
 
 
 # The class `behavior` defines the behavior and its attributes
 class Behavior:
-    def __init__(self, name : str, var : Variable, motors : Motors, stimulus : Stimulus, treshold : float, apeti_consu : bool):
+    def __init__(self, name : str, motors : Motors, stimulus : Stimulus, treshold : float, apeti_consu : bool):
         """        
         @param var The variable that the behavior is associated with.
         @param motors a list of motors that are associated with the variable
         """
         self.name = name
-        self.associated_var = var
         self.associated_stimulus = stimulus
         self.motors = motors
         self.treshold = treshold
         self.apeti_consu = apeti_consu
+        self.effects = [Effect]
 
-    def update_associated_var(self, val : float):
+    def add_effect(self, effect : Effect):
         """
-        The function takes in a value, adds it to the value of the associated variable, and then updates the
-        associated variable with the new value
+        This function adds an effect to the behavior.
         
-        @param val the value to be added to the associated variable
+        @param effect The effect to add.
         """
-        if self.associated_var.get_value() + val > 1.0:
-            self.associated_var.set_value(1.0)
-        else:
-            self.associated_var.set_value(self.associated_var.get_value() + val)
+        self.effects.append(effect)
+
 
     def can_consume(self, treshold : float):
         """
@@ -426,7 +457,8 @@ class Behavior:
         if(self.apeti_consu):
             if(self.can_consume(self.treshold)):
                 print("-------------------CONSU----------------------------")
-                self.consumatory()
+                for e in self.effects:
+                    e.impact()
             else:
                 print("--------------------APETI---------------------------")
                 self.appetitive()
@@ -859,7 +891,11 @@ def define_khepera():
 
     #add behaviors
     khepera.add_behavior(Behavior("eat", khepera.get_var_by_name("energy"),khepera.get_motors(),khepera.get_sensor_by_name("gnd"), 0.5, True))
+    khepera.get_behavior_by_name("eat").add_effect(Effect("increase_energy", khepera.get_var_by_name("energy"), False, 0.1))
+
     khepera.add_behavior(Behavior("cool-down", khepera.get_var_by_name("temperature"),khepera.get_motors(),khepera.get_sensor_by_name("gnd"), 0.5, True))
+    khepera.get_behavior_by_name("cool-down").add_effect(Effect("decrease_temperature", khepera.get_var_by_name("temperature"), True, 0.1))
+
     khepera.add_behavior(Behavior("withdraw", khepera.get_var_by_name("integrity"),khepera.get_motors(),khepera.get_sensor_by_name("prox"), 0.7, False))
 
     return khepera
