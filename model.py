@@ -52,6 +52,7 @@ def invert(list):
         print(i)
         l.append(1.0-i)
         print(l)
+    
     return l
 
 def normalize(list : list):
@@ -170,7 +171,7 @@ class Variable:
         self.margin = margin
         self.decrease = decrease
         self.step = step
-        self.deficit = 0.0
+        self.error = 0.0
 
     def __iter__(self):
         return self
@@ -197,25 +198,25 @@ class Variable:
         """
         return self.value
 
-    def get_deficit(self):
+    def get_error(self):
         """
-        It returns the deficit of the country.
+        It returns the error of the country.
         
-        @return The deficit of the object.
+        @return The error of the object.
         """
-        return self.deficit
+        return self.error
 
-    def update_deficit(self):
+    def update_error(self):
         """
-        The function update_deficit() updates the deficit of the object.
-        The deficit is computed as the difference between the ideal value and the current value with a margin of tolerance. 
+        The function update_error() updates the error of the object.
+        The error is computed as the difference between the ideal value and the current value with a margin of tolerance. 
         """
         if(self.value < (self.ideal - self.margin)):
-            self.deficit = abs((self.ideal - self.margin) - self.value)
+            self.error = abs((self.ideal - self.margin) - self.value)
         elif(self.value > (self.ideal + self.margin)):
-            self.deficit = abs((self.ideal + self.margin) - self.value)
+            self.error = abs((self.ideal + self.margin) - self.value)
         else:
-            self.deficit = 0.0
+            self.error = 0.0
 
     def update_value(self):
         if self.decrease:
@@ -225,7 +226,7 @@ class Variable:
 
     def update(self):
         self.update_value()
-        self.update_deficit()
+        self.update_error()
 
     def display(self):
         print("----------------------------------------------------")
@@ -306,11 +307,39 @@ class Sensor:
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
-    def  __init__(self, name : str, data : float):
+    def  __init__(self, name : str, data : float, min_val : float, max_val : float, inv : bool):
         self.name = name
         self.data = data
         self.size = len(data)
+        self.min_val = min_val
+        self.max_val = max_val
+        self.inv = inv
 
+    def process_stimulus(self):
+        """
+        This function processes the stimulus.
+        """
+        if self.inv:
+            self.data = 1.0 - ((self.data - self.min_val) / (self.max_val - self.min_val))
+        else:
+            self.data = ((self.data - self.min_val) / (self.max_val - self.min_val))
+    
+
+    def update(self):
+        """
+        This function updates the stimulus.
+        """
+        self.process_stimulus()    
+
+    def get_name(self):
+        """
+        This function returns the name of the stimulus.
+        
+        @return The name of the stimulus.
+        """
+        return self.name
+
+    
 
 
 
@@ -434,7 +463,7 @@ class Motivation:
         """
         The function computes the motivation to perform the action associated with the variable.
         """
-        self.intensity = self.controlled_var.get_deficit() + (self.controlled_var.get_deficit() * mean(self.stimulus))
+        self.intensity = self.controlled_var.get_error() + (self.controlled_var.get_error() * mean(self.stimulus))
 
     def get_intensity(self):
         """
@@ -444,8 +473,12 @@ class Motivation:
         """
         return self.intensity
 
+    def set_stimulus(self, stimulus : Stimulus):
+        self.stimulus = stimulus
+
     def update(self):
         self.compute()
+        self.stimulus.update()
 
     def set_drive(self, drive : Drive):
         self.drive = drive
@@ -469,6 +502,8 @@ class Robot:
         self.variables = [Variable]
         #sensors
         self.sensors = [Sensor]
+        #stimuli
+        self.stimuli = [Stimulus]
         #behaviors
         self.behaviors = [Behavior]
         #motivation
@@ -516,6 +551,13 @@ class Robot:
         """
         self.motivations.append(motivation)
     
+    def add_stimulus(self, stimulus : Stimulus):
+        """
+        The function takes a stimulus as argument and adds it to the list of stimuli.
+        @param stimulus The stimulus to add.
+        """
+        self.stimuli.append(stimulus)
+
 
     def get_variables(self):
         """
@@ -528,6 +570,12 @@ class Robot:
         The function returns the list of sensors.
         """
         return self.sensors
+
+    def get_stimuli(self):
+        """
+        The function returns the list of stimuli.
+        """
+        return self.stimuli
 
     def get_behaviors(self):
         """
@@ -556,17 +604,7 @@ class Robot:
             if var.name == name:
                 return var
         return None
-    
-    def get_raw_sensor_by_name(self, name : str):
-        """
-        The function takes a raw sensor name as argument and returns the raw sensor.
-        @param name The name of the raw sensor.
-        """
-        for r_sensor in self.raw_sensors:
-            if r_sensor.name == name:
-                return r_sensor
-        return None
-    
+        
     def get_sensor_by_name(self, name : str):
         """
         The function takes a sensor name as argument and returns the sensor.
@@ -575,6 +613,16 @@ class Robot:
         for sensor in self.sensors:
             if sensor.name == name:
                 return sensor
+        return None
+
+    def get_stimulus_by_name(self, name : str):
+        """
+        The function takes a stimulus name as argument and returns the stimulus.
+        @param name The name of the stimulus.
+        """
+        for stimulus in self.stimuli:
+            if stimulus.name == name:
+                return stimulus
         return None
 
     def get_behavior_by_name(self, name : str):
@@ -606,8 +654,8 @@ class Robot:
                 "{0:0.2f}".format(self.temperature.get_value()) + "," + "{0:0.2f}".format(self.integrity.get_value())
             )                
             file.write(
-                "," + "{0:0.2f}".format(self.energy.get_deficit()) + "," + 
-                "{0:0.2f}".format(self.temperature.get_deficit()) + "," + "{0:0.2f}".format(self.integrity.get_deficit())
+                "," + "{0:0.2f}".format(self.energy.get_error()) + "," + 
+                "{0:0.2f}".format(self.temperature.get_error()) + "," + "{0:0.2f}".format(self.integrity.get_error())
             )
             file.write("," + str(mean(self.hunger.stimulus)) + "," + str(mean(self.cold.stimulus)) + "," + str(mean(self.danger.stimulus)))
             file.write("," + str(self.hunger.intensity) + "," + str(self.cold.intensity) + "," + str(self.danger.intensity))
@@ -703,14 +751,14 @@ def define_khepera():
     khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, khepera))
     khepera.get_sensor_by_name("gnd").slice(8,12)
     khepera.get_sensor_by_name("gnd").set_size(4)
-    #compute our stimuli
-    food = Stimulus("food", khepera.get_sensor_by_name("gnd"))
-    shade = Stimulus("shade", khepera.get_sensor_by_name("gnd"))
-    wall = Stimulus("wall", khepera.get_sensor_by_name("prox"))
+    #add our stimuli
+    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.7, 0.8, False))
+    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.9, 1.0, False))
+    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1.0, True))
     #add motivations and their drive
-    khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_sensor_by_name("gnd").norm_val)) #hunger
+    khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("foood"))) 
     khepera.get_motivation_by_name("increase_energy").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))    
-    khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_sensor_by_name("inv_gnd").norm_val))
+    khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
     khepera.get_motivation_by_name("coldness").set_drive(Drive("decrease_temperature",True, khepera.get_var_by_name("temperature")))
 
     #add behaviors
@@ -729,9 +777,9 @@ def display(robot : Robot):
     print("Serial          :" + robot.port + " | bps :" + str(robot.baudrate))
     print("----------------------------------------------------")
     print("Energy          : " + "{0:0.2f}".format(robot.get_var_by_name("energy").get_value()) +      
-        " | deficit :  "    + "{0:0.2f}".format(robot.get_var_by_name("energy").get_deficit()))
+        " | error :  "    + "{0:0.2f}".format(robot.get_var_by_name("energy").get_error()))
     print("Temperature     :" + "{0:0.2f}".format(robot.get_var_by_name("temperature").get_value()) +      
-        " | deficit :  "    + "{0:0.2f}".format(robot.get_var_by_name("temperature").get_deficit()))
+        " | error :  "    + "{0:0.2f}".format(robot.get_var_by_name("temperature").get_error()))
     print("----------------------------------------------------")
     print("RAW US          : ", ["{0:0.0f}".format(i) for i in robot.get_sensor_by_name("us").raw_val])
     print("RAW PROX        : ", ["{0:0.0f}".format(i) for i in robot.get_sensor_by_name("prox").raw_val])
