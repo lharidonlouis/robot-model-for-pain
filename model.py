@@ -37,6 +37,13 @@ MANUAL = 0 # Manual control.
 
 # Python program to get average of a list
 def mean(lst : list):
+    """
+    It returns the mean of a list of numbers.
+    
+    @param lst
+    
+    @return The mean of the list
+    """
     if((sum(lst) != 0) and (len(lst) != 0)):
         return sum(lst)/len(lst)
     else:
@@ -77,6 +84,19 @@ class Motors:
         self.left = 0.0 # speed of left motor (from -1.0 to 1.0)
         self.right = 0.0  # speed of right motor (from -1.0 to 1.0)
         self.robot = Robot(robot)
+
+    def get_left_speed(self):
+        """
+        The function returns the speed of the left motor.
+        """
+        return self.left
+
+    
+    def get_right_speed(self):
+        """
+        The function returns the speed of the right motor.
+        """
+        return self.right
 
     def set(self, left : float, right : float):
         """
@@ -219,16 +239,25 @@ class Variable:
             self.error = 0.0
 
     def update_value(self):
+        """
+        The function update_value() updates the value of the object by adding or subtracting the step value
+        """
         if self.decrease:
             self.value = self.value - self.step
         else:
             self.value = self.value + self.step
 
     def update(self):
+        """
+        The function `update` calls the functions `update_value` and `update_error` on the object `self`
+        """
         self.update_value()
         self.update_error()
 
     def display(self):
+        """
+        The function takes a string as an argument, and returns a string.
+        """
         print("----------------------------------------------------")
         print(self.name + " : " + self.get_value())
         print("----------------------------------------------------")
@@ -314,6 +343,14 @@ class Stimulus:
         self.min_val = min_val
         self.max_val = max_val
         self.inv = inv
+
+    def get_data(self):
+        """
+        This function returns the data of the stimulus.
+        
+        @return The data of the stimulus.
+        """
+        return self.data
 
     def process_stimulus(self):
         """
@@ -473,14 +510,36 @@ class Motivation:
         """
         return self.intensity
 
+    def get_name(self):
+        """
+        This function returns the name of the motivation.
+        
+        @return The name of the motivation.
+        """
+        return self.name
+
     def set_stimulus(self, stimulus : Stimulus):
+        """
+        > The function `set_stimulus` takes a `Stimulus` object as an argument and assigns it to the
+        `stimulus` attribute of the `Neuron` object
+        
+        @param stimulus The stimulus to be presented to the subject.
+        """
         self.stimulus = stimulus
 
     def update(self):
+        """
+        `update` is a function that calls `compute` and `stimulus.update`
+        """
         self.compute()
         self.stimulus.update()
 
     def set_drive(self, drive : Drive):
+        """
+        Set the drive of the robot.
+        
+        @param drive The drive to be used for the backup.
+        """
         self.drive = drive
 
 
@@ -511,17 +570,6 @@ class Robot:
         #robot serial com
         self.com = cstm_serial.SerialPort(port, baudrate)
 
-        #info to store file
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        #append .dat to timestr
-        self.filename = "louis/res/" + timestr + ".csv"   
-        file = open(self.filename, 'a+')
-        file.write(
-            "time,val_energy,val_temperature,val_integrity,def_energy,def_temperature,def_integirty," + 
-            "cue_hunger,cue_cold,cue_danger,mot_hunger,mot_cold,mot_danger,motor_l,motor_r\n"
-        )
-        file.close()
-        self.iter = 0
         
     def add_variable(self, variable : Variable):
         """
@@ -645,22 +693,51 @@ class Robot:
                 return motivation
         return None
 
-    def save(self):
-        self.iter = self.iter + 1
-        with open(self.filename, "a+") as file:
-            file.write(str(self.iter) + ",")
-            file.write(
-                "{0:0.2f}".format(self.energy.get_value()) + "," + 
-                "{0:0.2f}".format(self.temperature.get_value()) + "," + "{0:0.2f}".format(self.integrity.get_value())
-            )                
-            file.write(
-                "," + "{0:0.2f}".format(self.energy.get_error()) + "," + 
-                "{0:0.2f}".format(self.temperature.get_error()) + "," + "{0:0.2f}".format(self.integrity.get_error())
-            )
-            file.write("," + str(mean(self.hunger.stimulus)) + "," + str(mean(self.cold.stimulus)) + "," + str(mean(self.danger.stimulus)))
-            file.write("," + str(self.hunger.intensity) + "," + str(self.cold.intensity) + "," + str(self.danger.intensity))
-            file.write("," + str(self.motors.left) + "," + str(self.motors.right))
-            file.write('\n')
+
+    def write_header_data(self, filename : str):
+        """
+        This function writes the header data to the file
+        
+        @param filename the name of the file to write to
+        
+        @return The iter+1 is being returned.
+        """
+        with open(filename, "a+") as file:
+            file.write("time",  ",")
+            for var in self.variables:
+                file.write("val_" + var.get_name() + ",")
+            for var in self.variables:
+                file.write("def_" + var.get_name() + ",")
+            for stimulus in self.stimuli:
+                file.write("stim_" + stimulus.get_name() +  ",")
+            for motivation in self.motivations:
+                file.write("mot_" + motivation.get_name() + ",")
+            file.write("motor_left" + ",")
+            file.write("motor_right")
+            file.write("\n")
+        return iter+1        
+
+
+    def save(self, filename : str, iter : int):
+        """ 
+        The function saves the robot in a file.
+        @param filename The name of the file.
+        @return iteration
+        """
+        with open(filename, "a+") as file:
+            file.write(str(iter) + ",")
+            for var in self.variables:
+                file.write(str(var.get_val()) + ",")
+            for var in self.variables:
+                file.write(str(var.get_error()) + ",")
+            for stimulus in self.stimuli:
+                file.write(str(mean(stimulus.get_data())) + ",")
+            for motivation in self.motivations:
+                file.write(str(motivation.get_intensity()) + ",")
+            file.write(str(self.motors.get_left_speed()) + ",")
+            file.write(str(self.motors.get_right_speed()))
+            file.write("\n")
+        return iter+1        
 
     def WTA(self) -> Motivation:
         if len(self.motivations)>0:
@@ -682,18 +759,29 @@ class Robot:
         else:
             return False
 
+    def has_shock(self, var : Variable, stim : Stimulus) -> bool:
+        """
+        The function has_shock returns true if the robot has a shock.
+        It impacts choosed variable with a malus
+        
+        @param var the variable that is being modified
+        @param stim the stimulus that the robot is currently experiencing
+        
+        @return The function has_shock returns true if the robot has a shock.
+        """
+        shock = 0 
+        for i in range(0, len(stim.data)):
+            if(stim.data[i] > 0.85):
+                shock += 1
+        if(shock > 1):
+            var.set_value(var.get_value() - 0.01)
+            return True
+        return False
+
     def update(self):
         """
         The update function updates the state of the robot
         """
-        #has the robot a shock ?
-        # shock = 0
-        # for i in range(0, len(self.prox.val)):
-        #     if(self.prox.val[i] > 0.85):
-        #         shock+= 1
-        # if shock > 1:
-        #     self.integrity.set_value(self.integrity.get_value() - 0.01)
-
         #update sensors
         for s in self.sensors:
             s.update()
@@ -739,6 +827,14 @@ class Robot:
 ############################################################################################################
 
 def define_khepera():
+    """
+    The function defines a robot named "khepera-iv" with a serial port "/dev/ttyS1" and a baud rate of
+    115200. It has two variables, "energy" and "temperature", and three sensors, "us", "prox", and
+    "gnd". It has three stimuli, "food", "shade", and "wall". It has two motivations, "hunger" and
+    "coldness", and three behaviors, "eat", "cool-down", and "withdraw"
+
+    @return A robot object
+    """
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200)
     #add variables
     khepera.add_variable(Variable("energy", 0.95, 1.0, 0.05, True, 0.01))
@@ -770,37 +866,31 @@ def define_khepera():
 
 def display(robot : Robot):
     """
-    The function display displays the robot's attributes.
+    It displays the robot's attributes
+    
+    @param robot the robot object
     """
-    print("----------------------------------------------------")
+    print("-------------------INFO-----------------------------")
     print("Robot name      : " + robot.name)
     print("Serial          :" + robot.port + " | bps :" + str(robot.baudrate))
-    print("----------------------------------------------------")
-    print("Energy          : " + "{0:0.2f}".format(robot.get_var_by_name("energy").get_value()) +      
-        " | error :  "    + "{0:0.2f}".format(robot.get_var_by_name("energy").get_error()))
-    print("Temperature     :" + "{0:0.2f}".format(robot.get_var_by_name("temperature").get_value()) +      
-        " | error :  "    + "{0:0.2f}".format(robot.get_var_by_name("temperature").get_error()))
-    print("----------------------------------------------------")
-    print("RAW US          : ", ["{0:0.0f}".format(i) for i in robot.get_sensor_by_name("us").raw_val])
-    print("RAW PROX        : ", ["{0:0.0f}".format(i) for i in robot.get_sensor_by_name("prox").raw_val])
-    print("RAW GND SENSORS : ", ["{0:0.0f}".format(i) for i in robot.get_sensor_by_name("gnd").raw_val])
-    print("----------------------------------------------------")
-    print("US              : ", ["{0:0.2f}".format(i) for i in robot.get_sensor_by_name("us").norm_val])
-    print("PROX            : ", ["{0:0.2f}".format(i) for i in robot.get_sensor_by_name("prox").norm_val])
-    print("GROUND SENSORS  : ", ["{0:0.2f}".format(i) for i in robot.get_sensor_by_name("gnd").norm_val])
-    print("----------------------------------------------------")
-    print("ENERGY SENSORS  : ", ["{0:0.2f}".format(i) for i in robot.gnd.val])
-    print("TEMP SENSORS    : ", ["{0:0.2f}".format(i) for i in  robot.inv_gnd.val])
-    print("----------------------------------------------------")
-    print("HUNGER cue      : ", mean(robot.hunger.stimulus))
-    print("COLD cue        : ", mean(robot.cold.stimulus))
-    print("DANGER cue      : ", mean(robot.danger.stimulus))
-    print("----------------------------------------------------")
-    print("HUNGER MOT      : ", robot.hunger.intensity)
-    print("COLD MOT        : ", robot.cold.intensity)
-    print("DANGER MOT      : ", robot.danger.intensity)
-    print("----------------------------------------------------")
-    print("MOTORS          : " +  "{0:0.2f}".format(robot.motors.left) + " | " + "{0:0.2f}".format(robot.motors.right))
+    print("-------------------VAL------------------------------")
+    for v in robot.variables:
+        print(v.name + " : " + "{0:0.2f}".format(v.get_value() + " | error : " + "{0:0.2f}".format(v.get_error())))
+    print("-----------------RAW SENSORS------------------------")
+    for s in robot.sensors:
+        print(s.name + " : " +  ["{0:0.0f}".format(i) for i in s.get_raw_val()])
+
+    print("-------------------SENSORS--------------------------")
+    for s in robot.sensors:
+        print(s.name + " : " +  ["{0:0.0f}".format(i) for i in s.get_norm_val()])
+    print("-------------------STIMULI--------------------------")
+    for s in robot.stimuli:
+        print(s.name + " : " + "{0:0.2f}".format(mean(s.get_data())))
+    print("-------------------MOTIVATIONS----------------------")
+    for m in robot.motivations:
+        print(m.name + " : " + "{0:0.2f}".format(m.get_intensity()))
+    print("---------------------MOTORS-------------------------")
+    print("left : " + "{0:0.2f}".format(robot.get_motors().get_left_speed()) + " | right : " + "{0:0.2f}".format(robot.get_motors().get_right_speed()))
     print("----------------------------------------------------")
 
 
@@ -808,8 +898,13 @@ def display(robot : Robot):
 # ----------------------------------------------------------------------------------------------------------------------
 # It creates an object of the class `robot` and assigns it to the variable `khepera`.
 khepera = define_khepera()
+#info to store file
+timestr = time.strftime("%Y%m%d-%H%M%S")
+#append .dat to timestr
+filename = "louis/res/" + timestr + ".csv"   
+khepera.write_header_data(filename)
+iter = 0
 user_input = 'e'
-i=0
 while(khepera.is_alive()):
     try:
         if MANUAL :
@@ -830,11 +925,11 @@ while(khepera.is_alive()):
                 khepera.motors.turn_right()
             else : 
                 pass
-        print(i)
         khepera.update()
-        khepera.display()
+        #khepera.has_shock(khepera.get_var_by_name("integrity"), khepera.get_stimulus_by_name("wall"))
+        display(khepera)
+        iter = khepera.save(filename, iter)
         time.sleep(TIME_SLEEP)
-        i=i+1
     except KeyboardInterrupt:
         khepera.motors.emergency_stop()
         print("Emergency stop")
