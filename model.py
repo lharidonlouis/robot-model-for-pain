@@ -92,7 +92,7 @@ class Motors:
     def __init__(self, robot):
         self.left = 0.0 # speed of left motor (from -1.0 to 1.0)
         self.right = 0.0  # speed of right motor (from -1.0 to 1.0)
-        self.robot = Robot(robot)
+        self.robot = robot
 
     def get_left_speed(self):
         """
