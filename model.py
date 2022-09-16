@@ -25,11 +25,12 @@
 
 # Modules
 import cstm_serial
+import random
 import time
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
-SIMULATE_VALUES = True # True if simulation, false if real values
+SIMULATION = True # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
@@ -180,7 +181,9 @@ class Motors:
             right = self.right * 1200
         else :
             right = 0
-        self.robot.send_data('D,' + str(left) + ',' + str(right))
+
+        if not SIMULATION:
+            self.robot.send_data('D,' + str(left) + ',' + str(right))
                 
     def drive_lr(
             self, 
@@ -196,7 +199,8 @@ class Motors:
             left =  left * 1200
         if(right != 0.0):
             right = right * 1200
-        self.robot.send_data('D,' + str(left) + ',' + str(right))
+        if not SIMULATION:
+            self.robot.send_data('D,' + str(left) + ',' + str(right))
 
 
     def update(self):
@@ -300,7 +304,7 @@ class Variable:
 class Sensor:
     def __init__(
             self, 
-            name,
+            name,   #type: str
             size,   #type: int
             s_char, #type: str
             r_char, #type: str
@@ -318,7 +322,13 @@ class Sensor:
         self.min = min
         self.max = max
         self.inv = inv # True if the sensor is inverted (the greater the value, the smaller the data)
-        self.robot = Robot(robot)
+        self.robot = robot
+
+    def get_name(self):
+        """
+        This function returns the name of the sensor.
+        """
+        return self.name
 
     def get_raw_val(self):
         """
@@ -367,37 +377,42 @@ class Sensor:
         """
         This function updates the value of the sensor.
         """
-        success = 0
-        while(not success):
-            self.robot.send_data(self.s_char)
-            data = self.robot.get_data()
-            data.replace('\r\n', '')
-            if(data != None):
-                data = self.robot.decode(data)
-                if(data[0] == self.r_char):
-                    success=1
-                    for i in range(self.size):
-                        #normalized
-                        if self.inv:
-                            self.norm_val[i] = 1.0 - ((float(data[i+1])-self.min) / (self.max-self.min))
-                        else:
-                            self.norm_val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))  
-                        #raw              
-                        self.raw_val = int(data[i+1])
+        if SIMULATION:
+                for i in range(len(self.norm_val)):
+                    self.norm_val[i] = random.random()
+                    self.raw_val[i] = random.randint(self.min, self.max)
+        else:
+            success = 0
+            while(not success):
+                self.robot.send_data(self.s_char)
+                data = self.robot.get_data()
+                data.replace('\r\n', '')
+                if(data != None):
+                    data = self.robot.decode(data)
+                    if(data[0] == self.r_char):
+                        success=1
+                        for i in range(self.size):
+                            #normalized
+                            if self.inv:
+                                self.norm_val[i] = 1.0 - ((float(data[i+1])-self.min) / (self.max-self.min))
+                            else:
+                                self.norm_val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))  
+                            #raw              
+                            self.raw_val = int(data[i+1])
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
     def  __init__(
             self, 
-            name,   #type: str
-            data,   #type: float
-            min_val,#type:float 
-            max_val,#type: float
-            inv     #type: bool
+            name,       #type: str
+            data,       #type: list[Sensor]
+            min_val,    #type:float 
+            max_val,    #type: float
+            inv         #type: bool
         ):
         self.name = name
         self.data = data
-        self.size = len(data)
+        self.size = len(data.norm_val)
         self.min_val = min_val
         self.max_val = max_val
         self.inv = inv
@@ -490,6 +505,14 @@ class Behavior:
         self.treshold = treshold
         self.apeti_consu = apeti_consu
         self.effects = [Effect]
+
+    def get_name(self):
+        """
+        This function returns the name of the behavior.
+        
+        @return The name of the behavior.
+        """
+        return self.name
 
     def add_effect(
             self,
@@ -688,7 +711,8 @@ class Robot:
         #motivation
         self.motivations = [Motivation]
         #robot serial com
-        self.com = cstm_serial.SerialPort(port, baudrate)
+        if not SIMULATION:
+            self.com = cstm_serial.SerialPort(port, baudrate)
         
     def add_variable(
             self, 
@@ -785,9 +809,9 @@ class Robot:
         The function takes a variable name as argument and returns the variable.
         @param name The name of the variable.
         """
-        for var in self.variables:
-            if var.name == name:
-                return var
+        for i in range(1,len(self.variables)):
+            if self.variables[i].get_name() == name:
+                return self.variables[i]
         return None
         
     def get_sensor_by_name(
@@ -798,9 +822,9 @@ class Robot:
         The function takes a sensor name as argument and returns the sensor.
         @param name The name of the sensor.
         """
-        for sensor in self.sensors:
-            if sensor.name == name:
-                return sensor
+        for i in range(1,len(self.sensors)):
+            if(self.sensors[i].get_name() == name):
+                return self.sensors[i]
         return None
 
     def get_stimulus_by_name(
@@ -811,9 +835,9 @@ class Robot:
         The function takes a stimulus name as argument and returns the stimulus.
         @param name The name of the stimulus.
         """
-        for stimulus in self.stimuli:
-            if stimulus.name == name:
-                return stimulus
+        for i in range(1,len(self.stimuli)):
+            if(self.stimuli[i].get_name() == name):
+                return self.stimuli[i]
         return None
 
     def get_behavior_by_name(
@@ -824,9 +848,9 @@ class Robot:
         The function takes a behavior name as argument and returns the behavior.
         @param name The name of the behavior.
         """
-        for behavior in self.behaviors:
-            if behavior.name == name:
-                return behavior
+        for i in range(1,len(self.behaviors)):
+            if(self.behaviors[i].get_name() == name):
+                return self.behaviors[i]
         return None
 
     def get_motivation_by_name(
@@ -837,9 +861,9 @@ class Robot:
         The function takes a motivation name as argument and returns the motivation.
         @param name The name of the motivation.
         """
-        for motivation in self.motivations:
-            if motivation.name == name:
-                return motivation
+        for i in range(1,len(self.motivations)):
+            if(self.motivations[i].get_name() == name):
+                return self.motivations[i]
         return None
 
 
@@ -854,20 +878,21 @@ class Robot:
         
         @return The iter+1 is being returned.
         """
-        with open(filename, "a+") as file:
-            file.write("time",  ",")
-            for var in self.variables:
-                file.write("val_" + var.get_name() + ",")
-            for var in self.variables:
-                file.write("def_" + var.get_name() + ",")
-            for stimulus in self.stimuli:
-                file.write("stim_" + stimulus.get_name() +  ",")
-            for motivation in self.motivations:
-                file.write("mot_" + motivation.get_name() + ",")
+        with open(filename, "a") as file:
+            file.write("time" +  ",")
+            i = 1
+            print(i)
+            for i in range(1,len(self.variables)):
+                file.write("val_" + self.variables[i].get_name() + ",")
+            for i in range(1,len(self.variables)):
+                file.write("def_" + self.variables[i].get_name() + ",")
+            for i in range(1,len(self.stimuli)):
+                file.write("stim_" + self.stimuli[i].get_name() +  ",")
+            for i in range(1,len(self.motivations)):
+                file.write("mot_" + self.motivations[i].get_name() + ",")
             file.write("motor_left" + ",")
             file.write("motor_right")
             file.write("\n")
-        return iter+1        
 
 
     def save(
@@ -882,14 +907,14 @@ class Robot:
         """
         with open(filename, "a+") as file:
             file.write(str(iter) + ",")
-            for var in self.variables:
-                file.write(str(var.get_val()) + ",")
-            for var in self.variables:
-                file.write(str(var.get_error()) + ",")
-            for stimulus in self.stimuli:
-                file.write(str(mean(stimulus.get_data())) + ",")
-            for motivation in self.motivations:
-                file.write(str(motivation.get_intensity()) + ",")
+            for i in range(1,len(self.variables)):
+                file.write(str(self.variables[i].get_value()) + ",")
+            for i in range(1,len(self.variables)):
+                file.write(str(self.variables[i].get_error()) + ",")
+            for i in range(1,len(self.stimuli)):
+                file.write(str(mean(self.stimuli[i].get_data())) + ",")
+            for i in range(1,len(self.motivations)):
+                file.write(str(self.motivations[i].get_intensity()) + ",")
             file.write(str(self.motors.get_left_speed()) + ",")
             file.write(str(self.motors.get_right_speed()))
             file.write("\n")
@@ -911,10 +936,10 @@ class Robot:
         """
         The function is_alive returns true if the robot is alive.
         """
-        if(self.energy.get_value() > 0.0 and self.temperature.get_value() > 0.0 and self.integrity.get_value() > 0.0):
-            return True
-        else:
-            return False
+        for i in range(1,len(self.variables)):
+            if(self.variables[i].get_value() < 0):
+                return False
+        return True
 
     def has_shock(
             self,
@@ -944,14 +969,14 @@ class Robot:
         The update function updates the state of the robot
         """
         #update sensors
-        for s in self.sensors:
-            s.update()
+        for i in range(1,len(self.sensors)):
+            self.sensors[i].update()
         #update physiological variables
-        for v in self.variables:
-            v.update()
+        for i in range(1,len(self.variables)):
+            self.variables[i].update()
         #update motivations
-        for m in self.motivations:
-            m.update()
+        for i in range(1,len(self.motivations)):
+            self.motivations[i].update()
         #select motivation
         selected_mot = self.WTA()
         #select behavior
@@ -1004,10 +1029,10 @@ def define_khepera():
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, khepera))
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, khepera))
+    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, khepera))
     khepera.get_sensor_by_name("prox").slice(0,8)
     khepera.get_sensor_by_name("prox").set_size(8)
-    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, khepera))
-    khepera.get_sensor_by_name("gnd").slice(8,12)
+    khepera.get_sensor_by_name("gnd").slice(9,12)
     khepera.get_sensor_by_name("gnd").set_size(4)
     #add our stimuli
     khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.7, 0.8, False))
@@ -1015,18 +1040,18 @@ def define_khepera():
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1.0, True))
     #add motivations and their drive
     khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("foood"))) 
-    khepera.get_motivation_by_name("increase_energy").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))  
+    khepera.get_motivation_by_name("hunger").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))  
 
     khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
     khepera.get_motivation_by_name("coldness").set_drive(Drive("decrease_temperature",True, khepera.get_var_by_name("temperature")))
     #add behaviors and their effects
-    khepera.add_behavior(Behavior("eat", khepera.get_var_by_name("energy"),khepera.get_motors(),khepera.get_sensor_by_name("gnd"), 0.5, True))
+    khepera.add_behavior(Behavior("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5, True))
     khepera.get_behavior_by_name("eat").add_effect(Effect("increase_energy", khepera.get_var_by_name("energy"), False, 0.1))
 
-    khepera.add_behavior(Behavior("cool-down", khepera.get_var_by_name("temperature"),khepera.get_motors(),khepera.get_sensor_by_name("gnd"), 0.5, True))
+    khepera.add_behavior(Behavior("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5, True))
     khepera.get_behavior_by_name("cool-down").add_effect(Effect("decrease_temperature", khepera.get_var_by_name("temperature"), True, 0.1))
 
-    khepera.add_behavior(Behavior("withdraw", khepera.get_var_by_name("integrity"),khepera.get_motors(),khepera.get_sensor_by_name("prox"), 0.7, False))
+    khepera.add_behavior(Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75, False))
 
     return khepera
 
@@ -1069,7 +1094,10 @@ khepera = define_khepera()
 #info to store file
 timestr = time.strftime("%Y%m%d-%H%M%S")
 #append .dat to timestr
-filename = "louis/res/" + timestr + ".csv"   
+if SIMULATION:
+    filename = "test.csv"
+else:
+    filename = "louis/res/" + timestr + ".csv"   
 khepera.write_header_data(filename)
 iter = 0
 user_input = 'e'
