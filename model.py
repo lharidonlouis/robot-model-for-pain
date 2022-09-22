@@ -499,14 +499,13 @@ class Behavior:
             motors,     #type: Motors
             stimulus,   #type: Stimulus
             treshold,   #type: float
-            apeti_consu #type: bool
         ):
         self.name = name
         self.associated_stimulus = stimulus
         self.motors = motors
         self.treshold = treshold
-        self.apeti_consu = apeti_consu
-        self.effects = [Effect]
+        self.main_effect = None #type: Effect
+        self.secondary_effects = [Effect] #a list of secondary effects
 
     def get_name(self):
         """
@@ -516,7 +515,19 @@ class Behavior:
         """
         return self.name
 
-    def add_effect(
+    def set_main_effect(
+        self,
+        effect #type: Effect
+    ):
+        """
+        This function sets the main effect of the behavior.
+        
+        @param effect The main effect of the behavior.
+        """
+        self.main_effect = effect
+    
+
+    def add_secondary_effect(
             self,
             effect #type: Effect
         ):
@@ -525,43 +536,14 @@ class Behavior:
         
         @param effect The effect to add.
         """
-        self.effects.append(effect)
+        self.secondary_effects.append(effect)
 
 
-    def can_consume(
-            self, 
-            treshold #type: float
-        ):
-        """
-        The function can_consume takes in associated stimulus and check if mean is above a treshold
-        @param treshold the treshold to check if the mean is above
-        @return 1 if resource can be consumed, 0 otherwise
-        """
-        if mean(self.associated_stimulus) > treshold:
-            return 1
-        else:
-            return 0
-
+# The class `Appetititve` is an inherited class of behavior
+class Appettitive(Behavior):
     def behave(self):
         """
-        If the bhv is seek_consume, it will consume if it can, otherwise it will be appetitive. If the agent
-        is not seek_consume, it will be reflexive
-        """
-        if(self.apeti_consu):
-            if(self.can_consume(self.treshold)):
-                print("-------------------CONSU----------------------------")
-                for e in self.effects:
-                    e.impact()
-            else:
-                print("--------------------APETI---------------------------")
-                self.appetitive()
-        else:
-            print("--------------------REFLEX---------------------------")
-            self.reflex()
-
-    def appetitive(self):
-        """
-        The function appettitive takes associated stimulus to determine left and right speed
+        The function behave takes associated stimulus to determine left and right speed
         first half of associated stimulus represents left stimulus and second right stimulus
         The greater the stimulus is, the faster the opposite wheel will be
         """
@@ -575,10 +557,44 @@ class Behavior:
         left = left_drive * 2 - 0.5
         right = right_drive * 2 - 0.5
         self.motors.set(left, right)
+        
 
-    def reflex(self):
+# The class `Consumatory` is an inherited class of behavior
+class Consumatory(Behavior):
+    
+    def can_consume(
+        self, 
+        treshold #type: float
+    ):
         """
-        The function reflex takes associated stimulus to determine left and right speed
+        The function can_consume takes in associated stimulus and check if mean is above a treshold
+        @param treshold the treshold to check if the mean is above
+        @return 1 if resource can be consumed, 0 otherwise
+        """
+        if mean(self.associated_stimulus) > treshold:
+            return 1
+        else:
+            return 0
+
+
+    def behave(self):
+        """
+        The function behave update thte assoociated var and lauch consumatory animation
+        """
+        if self.can_consume(self.treshold):
+            self.main_effect.impact()
+        for e in self.secondary_effects:
+            e.impact()
+        self.motors.turn_left()
+        time.sleep(0.2)
+        self.motors.turn_right()
+        time.sleep(0.2)
+
+# The class `Reflexive` is an inherited class of behavior
+class Reactive(Behavior):
+    def behave(self):
+        """
+        The function behave takes associated stimulus to determine left and right speed
         first half represent left stimulus and second right stimulus
         The greater the stimulus will be, the faster the associated wheel will be
         and the faster the opposite wheel will go in inverted direction
@@ -593,32 +609,7 @@ class Behavior:
         left = left_drive * 2 - 0.5
         right = - right_drive * 2 - 0.5
         self.motors.set(left, right)
-        
-    def consumatory(self):
-        """
-        The function consumatory update thte assoociated var and lauch consumatory animation
-        """
-        for e in self.effects:
-            e.impact()
-        self.motors.turn_left()
-        time.sleep(0.2)
-        self.motors.turn_right()
-        time.sleep(0.2)
 
-# The class `Appetititve` is an inherited class of behavior
-class Appettitive(Behavior):
-    def __init__():
-        pass
-
-# The class `Consumatory` is an inherited class of behavior
-class Consumatory(Behavior):
-    def __init__():
-        pass
-
-# The class `Reflexive` is an inherited class of behavior
-class Reactive(Behavior):
-    def __init__():
-        pass
 
 # The class `Drive` defines the drive and its attributes`
 class Drive:
