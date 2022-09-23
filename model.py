@@ -526,7 +526,13 @@ class Behavior:
         self.motors = motors
         self.treshold = treshold
         self.main_effect = None #type: Effect
-        self.secondary_effects = [Effect] #a list of secondary effects
+        self.secondary_effects = [Effect] * 0 #a list of secondary effects
+
+    def can_behave(self):
+        """
+        This will be redifined in the child classes
+        """
+        pass
 
     def get_main_effect(self):
         """
@@ -578,7 +584,7 @@ class Behavior:
 
 # The class `Appetititve` is an inherited class of behavior
 class Appettitive(Behavior):
-    def can_behave():
+    def can_behave(self):
         """
         This function checks if the behavior can be executed.
         
@@ -594,11 +600,11 @@ class Appettitive(Behavior):
         """
         left_drive = 0.0
         right_drive = 0.0
-        for i in range(len(self.associated_stimulus)/2):
-            right_drive = right_drive + self.associated_stimulus[i]
-            left_drive = left_drive + self.associated_stimulus[i+len(self.associated_stimulus)/2]
-        left_drive = left_drive / (len(self.associated_stimulus)/2)
-        right_drive = right_drive / (len(self.associated_stimulus)/2)
+        for i in range(len(self.associated_stimulus.data)/2):
+            right_drive = right_drive + self.associated_stimulus.data[i]
+            left_drive = left_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
+        left_drive = left_drive / (len(self.associated_stimulus.data)/2)
+        right_drive = right_drive / (len(self.associated_stimulus.data)/2)
         left = left_drive * 2 - 0.5
         right = right_drive * 2 - 0.5
         self.motors.set(left, right)
@@ -616,7 +622,7 @@ class Consumatory(Behavior):
         @param treshold the treshold to check if the mean is above
         @return True if resource can be consumed, 0 otherwise
         """
-        if mean(self.associated_stimulus) > self.treshold:
+        if mean(self.associated_stimulus.data) > self.treshold:
             return True
         else:
             return False
@@ -652,11 +658,11 @@ class Reactive(Behavior):
         """
         left_drive = 0.0
         right_drive = 0.0
-        for i in range(len(self.associated_stimulus)/2):
-            left_drive = left_drive + self.associated_stimulus[i]
-            right_drive = right_drive + self.associated_stimulus[i+len(self.associated_stimulus)/2]
-        left_drive = left_drive / (len(self.associated_stimulus)/2)
-        right_drive = right_drive / (len(self.associated_stimulus)/2)
+        for i in range(len(self.associated_stimulus.data)/2):
+            left_drive = left_drive + self.associated_stimulus.data[i]
+            right_drive = right_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
+        left_drive = left_drive / (len(self.associated_stimulus.data)/2)
+        right_drive = right_drive / (len(self.associated_stimulus.data)/2)
         left = left_drive * 2 - 0.5
         right = - right_drive * 2 - 0.5
         self.motors.set(left, right)
@@ -666,6 +672,7 @@ class Reactive(Behavior):
 
 
 # The class `BehavioralSystem` defines the behavioral system and its attributes
+# A behavioral system contains a list of behaviors sorted in order of priority of execution
 class BehavioralSystem:
     def __init__(
             self,
@@ -674,7 +681,7 @@ class BehavioralSystem:
         ):
         self.name = name
         self.drive = drive
-        self.behaviors = [Behavior] #type : list[Type[Behavior]]
+        self.behaviors = [Behavior] * 0 #type : list[Type[Behavior]]
 
     def get_drive(self):
         """
@@ -695,6 +702,14 @@ class BehavioralSystem:
         """
         self.behaviors.append(behavior)
     
+    def get_behaviors(self):
+        """
+        This function returns the behaviors of the behavioral system.
+        
+        @return The behaviors of the behavioral system.
+        """
+        return self.behaviors
+
     def get_name(self):
         """
         This function returns the name of the behavioral system.
@@ -1083,16 +1098,19 @@ class Robot:
         print("selected_mot : " + selected_mot.get_name())
         print("selected drive " + str(selected_mot.get_drive().get_name()))
         #select behavior
+        #first we get througt all the behavioral systems
         for b_s in self.behavior_systems:
-            #if there is a consumatory behavior that is linked to the selected motivation and can consume
             print ("---")
-            print ("behavior : " + b_s.get_name())
-            print ("drive : " + str(b_s.get_drive().get_name()))
+            print("b_s : " + b_s.get_name())
+            #if a behavioral system corresponds to the selected motivation
             if(b_s.get_drive() == selected_mot.get_drive()):
-                print('bs selected')
-            else:
-                print('bs not selected')
-            print("---")
+                print('b_s selected')
+                for b in b_s.get_behaviors():
+                    print ("behavior : " + b.get_name())
+                    if(b.can_behave()):
+                        print("behavior : " + b.get_name())
+                        b.behave()
+                        break
         #motor control
         self.motors.update()
 
@@ -1120,15 +1138,15 @@ class Robot:
         self.com.write(data + '\n')
 
 ############################################################################################################
+########################################## MAIN CODE #######################################################
+############################################################################################################
 
 def define_khepera():
     #type: (...) -> Robot
     """
-    The function defines a robot named "khepera-iv" with a serial port "/dev/ttyS1" and a baud rate of
-    115200. It has two variables, "energy" and "temperature", and three sensors, "us", "prox", and
-    "gnd". It has three stimuli, "food", "shade", and "wall". It has two motivations, "hunger" and
-    "coldness", and three behaviors, "eat", "cool-down", and "withdraw"
-
+    We create a robot called khepera, add variables, sensors, stimuli, drives, motivations, effects, and
+    behavioral systems
+    
     @return A robot object
     """
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200)
