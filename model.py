@@ -507,6 +507,22 @@ class Behavior:
         self.main_effect = None #type: Effect
         self.secondary_effects = [Effect] #a list of secondary effects
 
+    def get_main_effect(self):
+        """
+        This function returns the main effect of the behavior.
+        
+        @return The main effect of the behavior.
+        """
+        return self.main_effect
+
+    def get_secondary_effects(self):
+        """
+        This function returns the secondary effects of the behavior.
+        
+        @return The secondary effects of the behavior.
+        """
+        return self.secondary_effects
+
     def get_name(self):
         """
         This function returns the name of the behavior.
@@ -557,21 +573,23 @@ class Appettitive(Behavior):
         left = left_drive * 2 - 0.5
         right = right_drive * 2 - 0.5
         self.motors.set(left, right)
+
+        for e in self.secondary_effects:
+            e.impact()
+
         
 
 # The class `Consumatory` is an inherited class of behavior
 class Consumatory(Behavior):
-    
     def can_consume(
         self, 
-        treshold #type: float
     ):
         """
         The function can_consume takes in associated stimulus and check if mean is above a treshold
         @param treshold the treshold to check if the mean is above
         @return 1 if resource can be consumed, 0 otherwise
         """
-        if mean(self.associated_stimulus) > treshold:
+        if mean(self.associated_stimulus) > self.treshold:
             return 1
         else:
             return 0
@@ -581,8 +599,7 @@ class Consumatory(Behavior):
         """
         The function behave update thte assoociated var and lauch consumatory animation
         """
-        if self.can_consume(self.treshold):
-            self.main_effect.impact()
+        self.main_effect.impact()
         for e in self.secondary_effects:
             e.impact()
         self.motors.turn_left()
@@ -610,6 +627,10 @@ class Reactive(Behavior):
         right = - right_drive * 2 - 0.5
         self.motors.set(left, right)
 
+        for e in self.secondary_effects:
+            e.impact()
+
+
 
 # The class `Drive` defines the drive and its attributes`
 class Drive:
@@ -623,6 +644,14 @@ class Drive:
         self.increase_decrease = increase_decrease
         self.associated_var = associated_var
     
+    def get_name(self):
+
+        """
+        This function returns the name of the drive.
+        
+        @return The name of the drive.
+        """
+        return self.name
 
 # The class `motivation` defines a motivation and its attributes
 class Motivation:
@@ -1000,8 +1029,24 @@ class Robot:
             m.update()
         #select motivation
         selected_mot = self.WTA()
+        print("selected_mot : " + selected_mot.get_name())
+        print("selected drive " + str(selected_mot.get_drive().get_name()))
         #select behavior
-
+        for b in self.behaviors:
+            #if there is a consumatory behavior that is linked to the selected motivation and can consume
+            print ("---")
+            print ("behavior : " + b.get_name())
+            print ("type : " + type(b).__name__)
+            l = b.get_secondary_effects()
+            for i in l:
+                print ("secondary effect : " + i.get_name())
+            print("---")
+            if(b.get_main_effect() == selected_mot.get_drive().get_name()):
+                if(b.can_consume()):
+                    print("selected behavior : " + b.get_name())
+                    b.behave()
+                else:
+                    print("behavior " + b.get_name() + " cannot consume")                
         #motor control
         self.motors.update()
 
@@ -1057,20 +1102,37 @@ def define_khepera():
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.9, 1.0, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox").get_norm_val(), 0, 1.0, True))
     #add motivations and their drive
-    print(khepera.get_stimulus_by_name("food").get_data())
     khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("food"))) 
     khepera.get_motivation_by_name("hunger").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))  
 
     khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
     khepera.get_motivation_by_name("coldness").set_drive(Drive("decrease_temperature",True, khepera.get_var_by_name("temperature")))
-    #add behaviors and their effects
-    khepera.add_behavior(Behavior("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5, True))
-    khepera.get_behavior_by_name("eat").add_effect(Effect("increase_energy", khepera.get_var_by_name("energy"), False, 0.1))
+    #create effects
+    increase_energy = Effect("increase_energy", khepera.get_var_by_name("energy"), False, 0.1)
+    decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, 0.1)
+    decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, 0.01)
+    increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, 0.005)
 
-    khepera.add_behavior(Behavior("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5, True))
-    khepera.get_behavior_by_name("cool-down").add_effect(Effect("decrease_temperature", khepera.get_var_by_name("temperature"), True, 0.1))
+    #eat and seek food behavior
+    khepera.add_behavior(Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5))
+    khepera.get_behavior_by_name("eat").set_main_effect(increase_energy)
+    khepera.get_behavior_by_name("eat").add_secondary_effect(increase_temperature)
+    khepera.add_behavior(Appettitive("seek-food", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5))
+    khepera.get_behavior_by_name("seek-food").add_secondary_effect(decrease_energy)
+    khepera.get_behavior_by_name("seek-food").add_secondary_effect(increase_temperature)
 
-    khepera.add_behavior(Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75, False))
+    #cool down and seek shade behavior
+    khepera.add_behavior(Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5))
+    khepera.get_behavior_by_name("cool-down").set_main_effect(decrease_temperature)
+    khepera.get_behavior_by_name("cool-down").add_secondary_effect(decrease_energy)
+    khepera.add_behavior(Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5))
+    khepera.get_behavior_by_name("seek-shade").add_secondary_effect(decrease_energy)
+    khepera.get_behavior_by_name("seek-shade").add_secondary_effect(increase_temperature)
+
+    #withdraw behavior
+    khepera.add_behavior(Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75))
+    khepera.get_behavior_by_name("withdraw").add_secondary_effect(decrease_energy)
+    khepera.get_behavior_by_name("withdraw").add_secondary_effect(increase_temperature)
 
     return khepera
 
