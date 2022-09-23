@@ -34,7 +34,6 @@ SIMULATION = True # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
-N_NOCICEPTORS = 8 # Number of Nociceptors.
 MANUAL = 0 # Manual control.
 # ----------------------------------------------------------------------------------------------------------------------
 
