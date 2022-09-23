@@ -276,20 +276,11 @@ class Variable:
         else:
             self.error = 0.0
 
-    def update_value(self):
-        """
-        The function update_value() updates the value of the object by adding or subtracting the step value
-        """
-        if self.decrease:
-            self.value = self.value - self.step
-        else:
-            self.value = self.value + self.step
 
     def update(self):
         """
         The function `update` calls the functions `update_value` and `update_error` on the object `self`
         """
-        self.update_value()
         self.update_error()
 
     def display(self):
@@ -581,6 +572,16 @@ class Behavior:
         """
         self.secondary_effects.append(effect)
 
+    def main_impact(self):
+        print("effect: ", self.main_effect.get_name())
+        self.main_effect.impact()
+
+    def secondary_impact(self):
+        for e in self.secondary_effects:
+            print("effect: ", e.get_name())
+            e.impact()
+
+
 
 # The class `Appetititve` is an inherited class of behavior
 class Appettitive(Behavior):
@@ -609,9 +610,9 @@ class Appettitive(Behavior):
         right = right_drive * 2 - 0.5
         self.motors.set(left, right)
 
-        for e in self.secondary_effects:
-            e.impact()
-
+        if(self.main_effect != None):
+            self.main_impact()
+        self.secondary_impact()
         
 
 # The class `Consumatory` is an inherited class of behavior
@@ -631,9 +632,10 @@ class Consumatory(Behavior):
         """
         The function behave update thte assoociated var and lauch consumatory animation
         """
-        self.main_effect.impact()
-        for e in self.secondary_effects:
-            e.impact()
+        if(self.main_effect != None):
+            self.main_impact()
+        self.secondary_impact()
+
         self.motors.turn_left()
         time.sleep(0.2)
         self.motors.turn_right()
@@ -667,8 +669,10 @@ class Reactive(Behavior):
         right = - right_drive * 2 - 0.5
         self.motors.set(left, right)
 
-        for e in self.secondary_effects:
-            e.impact()
+        if(self.main_effect != None):
+            self.main_impact()
+        self.secondary_impact()
+
 
 
 # The class `BehavioralSystem` defines the behavioral system and its attributes
@@ -1097,18 +1101,17 @@ class Robot:
         selected_mot = self.WTA()
         print("selected_mot : " + selected_mot.get_name())
         print("selected drive " + str(selected_mot.get_drive().get_name()))
+        print ("---")
         #select behavior
         #first we get througt all the behavioral systems
         for b_s in self.behavior_systems:
-            print ("---")
-            print("b_s : " + b_s.get_name())
             #if a behavioral system corresponds to the selected motivation
             if(b_s.get_drive() == selected_mot.get_drive()):
-                print('b_s selected')
+                print("b_s selected: " + b_s.get_name())
                 for b in b_s.get_behaviors():
-                    print ("behavior : " + b.get_name())
                     if(b.can_behave()):
-                        print("behavior : " + b.get_name())
+                        print("behavior selected: " + b.get_name())
+                        print ("---")
                         b.behave()
                         break
         #motor control
