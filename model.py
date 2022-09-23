@@ -1054,7 +1054,7 @@ class Robot:
         """
         for v in self.variables:
             if v.decrease:
-                if v.get_value() < 0.0:
+                if v.get_value() <= 0.0:
                     return False
             else:
                 if v.get_value() > 1.01:
