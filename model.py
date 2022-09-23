@@ -490,6 +490,27 @@ class Effect:
             else:
                 self.var.set_value(1.0)
 
+# The class `Drive` defines the drive and its attributes`
+class Drive:
+    def __init__(
+            self, 
+            name,               #type: str
+            increase_decrease,  #type: bool
+            associated_var      #type: Variable
+        ):
+        self.name = name
+        self.increase_decrease = increase_decrease
+        self.associated_var = associated_var
+    
+    def get_name(self):
+
+        """
+        This function returns the name of the drive.
+        
+        @return The name of the drive.
+        """
+        return self.name
+
 
 # The class `behavior` defines the behavior and its attributes
 class Behavior:
@@ -557,6 +578,14 @@ class Behavior:
 
 # The class `Appetititve` is an inherited class of behavior
 class Appettitive(Behavior):
+    def can_behave():
+        """
+        This function checks if the behavior can be executed.
+        
+        @return True if the behavior can be executed, False otherwise.
+        """
+        return True
+
     def behave(self):
         """
         The function behave takes associated stimulus to determine left and right speed
@@ -581,19 +610,16 @@ class Appettitive(Behavior):
 
 # The class `Consumatory` is an inherited class of behavior
 class Consumatory(Behavior):
-    def can_consume(
-        self, 
-    ):
+    def can_behave(self):
         """
         The function can_consume takes in associated stimulus and check if mean is above a treshold
         @param treshold the treshold to check if the mean is above
-        @return 1 if resource can be consumed, 0 otherwise
+        @return True if resource can be consumed, 0 otherwise
         """
         if mean(self.associated_stimulus) > self.treshold:
-            return 1
+            return True
         else:
-            return 0
-
+            return False
 
     def behave(self):
         """
@@ -609,6 +635,14 @@ class Consumatory(Behavior):
 
 # The class `Reflexive` is an inherited class of behavior
 class Reactive(Behavior):
+    def can_behave(self):
+        """
+        This function checks if the behavior can be executed.
+        
+        @return True if the behavior can be executed, False otherwise.
+        """
+        return True
+
     def behave(self):
         """
         The function behave takes associated stimulus to determine left and right speed
@@ -631,27 +665,44 @@ class Reactive(Behavior):
             e.impact()
 
 
-
-# The class `Drive` defines the drive and its attributes`
-class Drive:
+# The class `BehavioralSystem` defines the behavioral system and its attributes
+class BehavioralSystem:
     def __init__(
-            self, 
-            name,               #type: str
-            increase_decrease,  #type: bool
-            associated_var      #type: Variable
+            self,
+            name,      #type: str
+            drive      #type: Drive
         ):
         self.name = name
-        self.increase_decrease = increase_decrease
-        self.associated_var = associated_var
+        self.drive = drive
+        self.behaviors = [Behavior] #type : list[Type[Behavior]]
+
+    def get_drive(self):
+        """
+        This function returns the drive of the behavioral system.
+        
+        @return The drive of the behavioral system.
+        """
+        return self.drive
+
+    def add_behavior(
+            self,
+            behavior,   #type: Behavior
+        ):
+        """
+        This function adds a behavior to the behavioral system.
+        
+        @param behavior The behavior to add.
+        """
+        self.behaviors.append(behavior)
     
     def get_name(self):
-
         """
-        This function returns the name of the drive.
+        This function returns the name of the behavioral system.
         
-        @return The name of the drive.
+        @return The name of the behavioral system.
         """
         return self.name
+
 
 # The class `motivation` defines a motivation and its attributes
 class Motivation:
@@ -753,7 +804,7 @@ class Robot:
         #stimuli
         self.stimuli = [Stimulus] * 0
         #behaviors
-        self.behaviors = [Behavior] * 0
+        self.behavior_systems = [BehavioralSystem] * 0
         #motivation
         self.motivations = [Motivation] * 0
         #robot serial com
@@ -780,15 +831,15 @@ class Robot:
         """
         self.sensors.append(sensor)
 
-    def add_behavior(
+    def add_behavioral_system(
             self, 
-            behavior    #type: Behavior
+            behaviorsystem    #type: BehavioralSystem
         ):
         """
         The function takes a behavior as argument and adds it to the list of behaviors.
         @param behavior The behavior to add.
         """
-        self.behaviors.append(behavior)
+        self.behavior_systems.append(behaviorsystem)
     
     def add_motivation(
             self, 
@@ -829,11 +880,11 @@ class Robot:
         """
         return self.stimuli
 
-    def get_behaviors(self):
+    def get_behavior_systems(self):
         """
         The function returns the list of behaviors.
         """
-        return self.behaviors
+        return self.behbehavior_systemsaviors
 
     def get_motivations(self):
         """
@@ -886,7 +937,7 @@ class Robot:
                 return stimulus
         return None
 
-    def get_behavior_by_name(
+    def get_behavior_systems_by_name(
             self, 
             name    #type: str
         ):
@@ -894,9 +945,9 @@ class Robot:
         The function takes a behavior name as argument and returns the behavior.
         @param name The name of the behavior.
         """
-        for behavior in self.behaviors:
-            if behavior.get_name() == name:
-                return behavior
+        for bhv_s in self.behavior_systems:
+            if bhv_s.get_name() == name:
+                return bhv_s
         return None
 
     def get_motivation_by_name(
@@ -1032,21 +1083,16 @@ class Robot:
         print("selected_mot : " + selected_mot.get_name())
         print("selected drive " + str(selected_mot.get_drive().get_name()))
         #select behavior
-        for b in self.behaviors:
+        for b_s in self.behavior_systems:
             #if there is a consumatory behavior that is linked to the selected motivation and can consume
             print ("---")
-            print ("behavior : " + b.get_name())
-            print ("type : " + type(b).__name__)
-            l = b.get_secondary_effects()
-            for i in l:
-                print ("secondary effect : " + i.get_name())
+            print ("behavior : " + b_s.get_name())
+            print ("drive : " + str(b_s.get_drive().get_name()))
+            if(b_s.get_drive() == selected_mot.get_drive()):
+                print('bs selected')
+            else:
+                print('bs not selected')
             print("---")
-            if(b.get_main_effect() == selected_mot.get_drive().get_name()):
-                if(b.can_consume()):
-                    print("selected behavior : " + b.get_name())
-                    b.behave()
-                else:
-                    print("behavior " + b.get_name() + " cannot consume")                
         #motor control
         self.motors.update()
 
@@ -1101,38 +1147,49 @@ def define_khepera():
     khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.7, 0.8, False))
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.9, 1.0, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox").get_norm_val(), 0, 1.0, True))
-    #add motivations and their drive
+    #declare drives
+    increase_energy = Drive("increase_energy",True, khepera.get_var_by_name("energy"))
+    decrease_temperature = Drive("decrease_temperature", False, khepera.get_var_by_name("temperature"))
+    #add motivations and their drives
     khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("food"))) 
-    khepera.get_motivation_by_name("hunger").set_drive(Drive("increase_energy",True, khepera.get_var_by_name("energy")))  
-
+    khepera.get_motivation_by_name("hunger").set_drive(increase_energy)  
     khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
-    khepera.get_motivation_by_name("coldness").set_drive(Drive("decrease_temperature",True, khepera.get_var_by_name("temperature")))
+    khepera.get_motivation_by_name("coldness").set_drive(decrease_temperature)
     #create effects
     increase_energy = Effect("increase_energy", khepera.get_var_by_name("energy"), False, 0.1)
     decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, 0.1)
     decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, 0.01)
     increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, 0.005)
-
     #eat and seek food behavior
-    khepera.add_behavior(Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5))
-    khepera.get_behavior_by_name("eat").set_main_effect(increase_energy)
-    khepera.get_behavior_by_name("eat").add_secondary_effect(increase_temperature)
-    khepera.add_behavior(Appettitive("seek-food", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5))
-    khepera.get_behavior_by_name("seek-food").add_secondary_effect(decrease_energy)
-    khepera.get_behavior_by_name("seek-food").add_secondary_effect(increase_temperature)
-
+    food = BehavioralSystem("food", increase_energy)
+    eat = Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5)
+    eat.set_main_effect(increase_energy)
+    eat.add_secondary_effect(increase_temperature)
+    seek_food = Appettitive("seek-food", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5)
+    seek_food.set_main_effect(decrease_energy)
+    seek_food.add_secondary_effect(increase_temperature)
+    food.add_behavior(eat)
+    food.add_behavior(seek_food)
     #cool down and seek shade behavior
-    khepera.add_behavior(Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5))
-    khepera.get_behavior_by_name("cool-down").set_main_effect(decrease_temperature)
-    khepera.get_behavior_by_name("cool-down").add_secondary_effect(decrease_energy)
-    khepera.add_behavior(Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5))
-    khepera.get_behavior_by_name("seek-shade").add_secondary_effect(decrease_energy)
-    khepera.get_behavior_by_name("seek-shade").add_secondary_effect(increase_temperature)
-
+    shade = BehavioralSystem("shade", decrease_temperature)
+    cool_down = Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5)
+    cool_down.set_main_effect(decrease_temperature)
+    cool_down.add_secondary_effect(increase_energy)
+    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5)
+    seek_shade.set_main_effect(increase_temperature)
+    seek_shade.add_secondary_effect(decrease_energy)
+    shade.add_behavior(cool_down)
+    shade.add_behavior(seek_shade)
     #withdraw behavior
-    khepera.add_behavior(Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75))
-    khepera.get_behavior_by_name("withdraw").add_secondary_effect(decrease_energy)
-    khepera.get_behavior_by_name("withdraw").add_secondary_effect(increase_temperature)
+    avoid = BehavioralSystem("avoid", None)
+    withdraw = Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75)
+    withdraw.add_secondary_effect(decrease_energy)
+    withdraw.add_secondary_effect(increase_temperature)
+    avoid.add_behavior(withdraw)
+    #behavioral system
+    khepera.add_behavioral_system(food)
+    khepera.add_behavioral_system(shade)
+    khepera.add_behavioral_system(avoid)
 
     return khepera
 
