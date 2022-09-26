@@ -402,14 +402,15 @@ class Stimulus:
     def  __init__(
             self, 
             name,       #type: str
-            data,       #type: list[float]
+            sensor,       #type: Sensor
             min_val,    #type:float 
             max_val,    #type: float
             inv         #type: bool
         ):
         self.name = name
-        self.data = data
-        self.size = len(data)
+        self.sensor = sensor
+        self.size = len(sensor.get_norm_val())
+        self.data = [0.0] * self.size
         self.min_val = min_val
         self.max_val = max_val
         self.inv = inv
@@ -426,13 +427,14 @@ class Stimulus:
         """
         This function processes the stimulus.
         """
+        self.size = len(self.data)
         if self.inv:
             for i in range(self.size):
                 self.data[i] = 1.0 - ((self.data[i] - self.min_val) / (self.max_val - self.min_val))                    
         else:
             for i in range(self.size):
                 self.data[i] = ((self.data[i] - self.min_val) / (self.max_val - self.min_val))
-        for i in range(self.size)
+        for i in range(self.size):
             if(self.data[i] > 1.0):
                 self.data[i] = 1.0
             elif self.data[i] < 0.0:
@@ -442,6 +444,7 @@ class Stimulus:
         """
         This function updates the stimulus.
         """
+        self.data = self.sensor.get_norm_val()
         self.process_stimulus()    
 
     def get_name(self):
@@ -1171,8 +1174,8 @@ def define_khepera():
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
     khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
-    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.7, 0.8, False))
-    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.9, 1.0, False))
+    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.04, 0.06, False))
+    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.1, 0.4, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox").get_norm_val(), 0, 1.0, True))
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
@@ -1243,7 +1246,7 @@ def display(
         print(s.name + " : ",  ["{0:0.2f}".format(i) for i in s.get_norm_val()])
     print("-------------------STIMULI--------------------------")
     for s in robot.stimuli:
-        print(s.name + " : ", "{0:0.2f}".format(mean(s.get_data())))
+        print(s.name + " : ", "{0:0.2f}".format(mean(s.get_data())), " " , ["{0:0.2f}".format(i) for i in s.get_data()])
     print("-------------------MOTIVATIONS----------------------")
     for m in robot.motivations:
         print(m.name + " : " + "{0:0.2f}".format(m.get_intensity()))
