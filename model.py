@@ -365,7 +365,7 @@ class Sensor:
         """
         self.norm_val=self.norm_val[start:end]
         self.raw_val=self.raw_val[start:end]
-        self.size = len(self.norm_val)
+        #self.size = len(self.norm_val)
 
     def update(self):
         """
@@ -385,6 +385,8 @@ class Sensor:
                     data = self.robot.decode(data)
                     if(data[0] == self.r_char):
                         success=1
+                        self.raw_val = [0] * self.size 
+                        self.norm_val = [0.0] * self.size 
                         for i in range(self.size):
                             #normalized
                             if self.inv:
@@ -392,9 +394,8 @@ class Sensor:
                             else:
                                 self.norm_val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))  
                             #raw              
-                            self.raw_val = int(data[i+1])
-
-                        slice(self.start, self.end)
+                            self.raw_val[i] = int(data[i+1])
+                        self.slice(self.start, self.end)
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
@@ -427,11 +428,15 @@ class Stimulus:
         """
         if self.inv:
             for i in range(self.size):
-                self.data[i] = 1.0 - ((self.data[i] - self.min_val) / (self.max_val - self.min_val))
+                self.data[i] = 1.0 - ((self.data[i] - self.min_val) / (self.max_val - self.min_val))                    
         else:
             for i in range(self.size):
                 self.data[i] = ((self.data[i] - self.min_val) / (self.max_val - self.min_val))
-    
+        for i in range(self.size)
+            if(self.data[i] > 1.0):
+                self.data[i] = 1.0
+            elif self.data[i] < 0.0:
+                self.data[i] = 0.0
 
     def update(self):
         """
@@ -1176,8 +1181,8 @@ def define_khepera():
     #add motivations and their drives
     khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("food"))) 
     khepera.get_motivation_by_name("hunger").set_drive(dr_increase_energy)  
-    khepera.add_motivation(Motivation("coldness", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
-    khepera.get_motivation_by_name("coldness").set_drive(dr_decrease_temperature)
+    khepera.add_motivation(Motivation("cold", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
+    khepera.get_motivation_by_name("cold").set_drive(dr_decrease_temperature)
     #create effects
     e_increase_energy = Effect("increase-energy", khepera.get_var_by_name("energy"), False, 0.1)
     e_decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, 0.1)
@@ -1189,7 +1194,7 @@ def define_khepera():
     eat.set_main_effect(e_increase_energy)
     eat.add_secondary_effect(e_increase_temperature)
     seek_food = Appettitive("seek-food", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5)
-    seek_food.set_main_effect(e_decrease_energy)
+    seek_food.add_secondary_effect(e_decrease_energy)
     seek_food.add_secondary_effect(e_increase_temperature)
     food.add_behavior(eat)
     food.add_behavior(seek_food)
@@ -1199,7 +1204,7 @@ def define_khepera():
     cool_down.set_main_effect(e_decrease_temperature)
     cool_down.add_secondary_effect(e_decrease_energy)
     seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5)
-    seek_shade.set_main_effect(e_decrease_energy)
+    seek_shade.add_secondary_effect(e_decrease_energy)
     seek_shade.add_secondary_effect(e_increase_temperature)
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
@@ -1232,7 +1237,7 @@ def display(
         print(v.name + " : " + "{0:0.2f}".format(v.get_value()) + " | error : " + "{0:0.2f}".format(v.get_error()))
     print("-----------------RAW SENSORS------------------------")
     for s in robot.sensors:
-        print(s.name + " : ")#,  ["{0:0.0f}".format(i) for i in s.get_raw_val()])
+        print(s.name + " : ",  [i for i in s.get_raw_val()])
     print("-------------------SENSORS--------------------------")
     for s in robot.sensors:
         print(s.name + " : ",  ["{0:0.2f}".format(i) for i in s.get_norm_val()])
