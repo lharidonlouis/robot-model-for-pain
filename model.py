@@ -30,7 +30,7 @@ import time
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
-SIMULATION = True # True if simulation, false if real values
+SIMULATION = False # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
@@ -301,6 +301,8 @@ class Sensor:
             min,    #type: int
             max,    #type: int
             inv,    #type: bool
+            start,  #type: int
+            end,    #type: int
             robot
         ):
         self.raw_val = [0] * size 
@@ -312,6 +314,8 @@ class Sensor:
         self.min = min
         self.max = max
         self.inv = inv # True if the sensor is inverted (the greater the value, the smaller the data)
+        self.start = start
+        self.end = end
         self.robot = robot
 
     def get_name(self):
@@ -389,6 +393,8 @@ class Sensor:
                                 self.norm_val[i] = ((float(data[i+1])-self.min) / (self.max-self.min))  
                             #raw              
                             self.raw_val = int(data[i+1])
+
+                        slice(self.start, self.end)
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
@@ -1156,13 +1162,9 @@ def define_khepera():
     khepera.add_variable(Variable("energy", 0.95, 1.0, 0.05, True, 0.01))
     khepera.add_variable(Variable("temperature", 0.0, 0.1, 0.1, False, 0.005))
     #add sensors 
-    khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, khepera))
-    khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, khepera))
-    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, khepera))
-    khepera.get_sensor_by_name("prox").slice(0,7)
-    khepera.get_sensor_by_name("prox").set_size(8)
-    khepera.get_sensor_by_name("gnd").slice(8,12)
-    khepera.get_sensor_by_name("gnd").set_size(4)
+    khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS-1, khepera))
+    khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
+    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
     khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.7, 0.8, False))
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd").get_norm_val(), 0.9, 1.0, False))
@@ -1230,7 +1232,7 @@ def display(
         print(v.name + " : " + "{0:0.2f}".format(v.get_value()) + " | error : " + "{0:0.2f}".format(v.get_error()))
     print("-----------------RAW SENSORS------------------------")
     for s in robot.sensors:
-        print(s.name + " : ",  ["{0:0.0f}".format(i) for i in s.get_raw_val()])
+        print(s.name + " : ")#,  ["{0:0.0f}".format(i) for i in s.get_raw_val()])
     print("-------------------SENSORS--------------------------")
     for s in robot.sensors:
         print(s.name + " : ",  ["{0:0.2f}".format(i) for i in s.get_norm_val()])
