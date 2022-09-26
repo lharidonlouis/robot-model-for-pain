@@ -440,12 +440,13 @@ class Stimulus:
             elif self.data[i] < 0.0:
                 self.data[i] = 0.0
 
+
     def update(self):
         """
         This function updates the stimulus.
         """
-        self.data = self.sensor.get_norm_val()
-        self.process_stimulus()    
+        self.data = self.sensor.get_norm_val()[:]
+        self.process_stimulus()
 
     def get_name(self):
         """
