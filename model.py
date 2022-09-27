@@ -18,8 +18,8 @@
 # - If you want to change the robot see Motors.drive() and Sensors.update()
 #
 # @section todo_doxygen_example TODO
-# - Debug values.
-# - Check for stimuli and drive.
+# - debug motor control
+# - lauch experiments
 #
 # Copyright (c) 2022 Louis L'Haridon.  All rights reserved.
 
@@ -435,8 +435,12 @@ class Stimulus:
             for i in range(self.size):
                 self.data[i] = ((self.data[i] - self.min_val) / (self.max_val - self.min_val))
         for i in range(self.size):
-            if(self.data[i] > 1.0):
-                self.data[i] = 1.0
+            if(self.data[i] > 1.0):            
+                self.data[i] = 1.0 - (1.0 - self.data[i])
+                if self.data[i] >1.0:
+                    self.data[i] = 0.0
+                elif self.data[i]<0.0:
+                    self.data[i] = 0.0
             elif self.data[i] < 0.0:
                 self.data[i] = 0.0
 
@@ -917,7 +921,7 @@ class Robot:
         """
         The function returns the list of behaviors.
         """
-        return self.behbehavior_systemsaviors
+        return self.behavior_systems
 
     def get_motivations(self):
         """
