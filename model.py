@@ -619,13 +619,17 @@ class Appettitive(Behavior):
         """
         left_drive = 0.0
         right_drive = 0.0
-        for i in range(len(self.associated_stimulus.data)/2):
-            right_drive = right_drive + self.associated_stimulus.data[i]
-            left_drive = left_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
-        left_drive = left_drive / (len(self.associated_stimulus.data)/2)
-        right_drive = right_drive / (len(self.associated_stimulus.data)/2)
-        left = left_drive * 2 - 0.5
-        right = right_drive * 2 - 0.5
+        if(mean(self.associated_stimulus.data)>0.1):
+            for i in range(len(self.associated_stimulus.data)/2):
+                right_drive = right_drive + self.associated_stimulus.data[i]
+                left_drive = left_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
+            left_drive = left_drive / (len(self.associated_stimulus.data)/2)
+            right_drive = right_drive / (len(self.associated_stimulus.data)/2)
+            left = left_drive * 2 
+            right = right_drive * 2
+        else:
+            left_drive = 0.5 + ((0.5 - (random.random()))/5)
+            right_drive = 0.5 + ((0.5 - (random.random()))/5)
         self.motors.set(left, right)
 
         if(self.main_effect != None):
@@ -683,8 +687,8 @@ class Reactive(Behavior):
             right_drive = right_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
         left_drive = left_drive / (len(self.associated_stimulus.data)/2)
         right_drive = right_drive / (len(self.associated_stimulus.data)/2)
-        left = left_drive * 2 - 0.5
-        right = - right_drive * 2 - 0.5
+        left = left_drive * 2 
+        right = - right_drive * 2 
         self.motors.set(left, right)
 
         if(self.main_effect != None):
@@ -1181,7 +1185,7 @@ def define_khepera():
     #add our stimuli
     khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.04, 0.06, False))
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.1, 0.4, False))
-    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1.0, True))
+    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("us"), 0, 1.0, True))
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
     dr_decrease_temperature = Drive("decrease-temperature", False, khepera.get_var_by_name("temperature"))
