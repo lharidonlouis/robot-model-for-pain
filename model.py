@@ -628,8 +628,8 @@ class Appettitive(Behavior):
             left = left_drive * 2 
             right = right_drive * 2
         else:
-            left_drive = 0.5 + ((0.5 - (random.random()))/5)
-            right_drive = 0.5 + ((0.5 - (random.random()))/5)
+            left = 0.5 + ((0.5 - (random.random()))/5)
+            right = 0.5 + ((0.5 - (random.random()))/5)
         self.motors.set(left, right)
 
         if(self.main_effect != None):
