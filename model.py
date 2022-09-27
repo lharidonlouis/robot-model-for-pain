@@ -1079,7 +1079,7 @@ class Robot:
                 if v.get_value() <= 0.0:
                     return False
             else:
-                if v.get_value() > 1.01:
+                if v.get_value() >= 1.0:
                     return False
         return True
 
@@ -1177,14 +1177,14 @@ def define_khepera():
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200)
     #add variables
     khepera.add_variable(Variable("energy", 0.95, 1.0, 0.05, True, 0.01))
-    khepera.add_variable(Variable("temperature", 0.0, 0.1, 0.1, False, 0.005))
+    khepera.add_variable(Variable("temperature", 0.05, 0.1, 0.1, False, 0.005))
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS-1, khepera))
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
     khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
     khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.04, 0.06, False))
-    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.1, 0.4, False))
+    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.1, 0.7, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("us"), 0, 1.0, True))
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
@@ -1212,10 +1212,10 @@ def define_khepera():
     food.add_behavior(seek_food)
     #cool down and seek shade behavior
     shade = BehavioralSystem("shade", dr_decrease_temperature)
-    cool_down = Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5)
+    cool_down = Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.3)
     cool_down.set_main_effect(e_decrease_temperature)
     cool_down.add_secondary_effect(e_decrease_energy)
-    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.5)
+    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.3)
     seek_shade.add_secondary_effect(e_decrease_energy)
     seek_shade.add_secondary_effect(e_increase_temperature)
     shade.add_behavior(cool_down)
