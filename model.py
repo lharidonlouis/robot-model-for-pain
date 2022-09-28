@@ -673,6 +673,16 @@ class Reactive(Behavior):
         """
         return True
 
+    def is_excited(self):
+        """
+        The function is_excited takes the data of the associated sstimulus and 
+        determine if reactive shoud be activated
+        """
+        if((mean(self.associated_stimulus.data))>self.treshold):
+            return True
+        else:
+            return False
+
     def behave(self):
         """
         The function behave takes associated stimulus to determine left and right speed
@@ -846,6 +856,7 @@ class Robot:
         self.stimuli = [Stimulus] * 0
         #behaviors
         self.behavior_systems = [BehavioralSystem] * 0
+        self.reactive_systems = [BehavioralSystem] * 0
         #motivation
         self.motivations = [Motivation] * 0
         #robot serial com
@@ -882,6 +893,17 @@ class Robot:
         """
         self.behavior_systems.append(behaviorsystem)
     
+    def add_reactive_system(
+            self, 
+            behaviorsystem    #type: BehavioralSystem
+        ):
+        """
+        The function takes a behavior as argument and adds it to the list of behaviors.
+        @param behavior The behavior to add.
+        """
+        self.reactive_systems.append(behaviorsystem)
+
+
     def add_motivation(
             self, 
             motivation    #type: Motivation
@@ -926,6 +948,13 @@ class Robot:
         The function returns the list of behaviors.
         """
         return self.behavior_systems
+
+    def get_reactive_systems(self):
+        """
+        The function returns the list of behaviors.
+        """
+        return self.reactive_systems
+
 
     def get_motivations(self):
         """
@@ -990,6 +1019,20 @@ class Robot:
             if bhv_s.get_name() == name:
                 return bhv_s
         return None
+
+    def get_reactive_systems_by_name(
+            self, 
+            name    #type: str
+        ):
+        """
+        The function takes a behavior name as argument and returns the behavior.
+        @param name The name of the behavior.
+        """
+        for bhv_s in self.reactive_systems:
+            if bhv_s.get_name() == name:
+                return bhv_s
+        return None
+
 
     def get_motivation_by_name(
             self, 
@@ -1125,17 +1168,29 @@ class Robot:
         print("selected drive " + str(selected_mot.get_drive().get_name()))
         print ("---")
         #select behavior
-        #first we get througt all the behavioral systems
-        for b_s in self.behavior_systems:
-            #if a behavioral system corresponds to the selected motivation
-            if(b_s.get_drive() == selected_mot.get_drive()):
-                print("b_s selected: " + b_s.get_name())
-                for b in b_s.get_behaviors():
-                    if(b.can_behave()):
+        #if there is a reactive system activated behave
+        reflex = False
+        for b_s in self.reactive_systems:
+            for b in b_s.get_behaviors():
+                if b.is_excited():
+                    if b.can_behave():
                         print("behavior selected: " + b.get_name())
                         print ("---")
                         b.behave()
-                        break
+                        reflex = True
+        #else select behavior
+        #first we get througt all the behavioral systems
+        if not reflex:
+            for b_s in self.behavior_systems:
+                #if a behavioral system corresponds to the selected motivation
+                if(b_s.get_drive() == selected_mot.get_drive()):
+                    print("b_s selected: " + b_s.get_name())
+                    for b in b_s.get_behaviors():
+                        if(b.can_behave()):
+                            print("behavior selected: " + b.get_name())
+                            print ("---")
+                            b.behave()
+                            break
         #motor control
         self.motors.update()
 
@@ -1183,7 +1238,7 @@ def define_khepera():
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
     khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
-    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.04, 0.06, False))
+    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.06, 0.1, False))
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.1, 0.7, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("us"), 0, 1.0, True))
     #declare drives
@@ -1229,7 +1284,7 @@ def define_khepera():
     #behavioral system
     khepera.add_behavioral_system(food)
     khepera.add_behavioral_system(shade)
-    khepera.add_behavioral_system(avoid)
+    khepera.add_reactive_system(avoid)
 
     return khepera
 
