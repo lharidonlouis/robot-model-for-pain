@@ -856,7 +856,7 @@ class Robot:
         self.stimuli = [Stimulus] * 0
         #behaviors
         self.behavior_systems = [BehavioralSystem] * 0
-        self.reactive_systems = [BehavioralSystem] * 0
+        self.reactive_systems = [Reactive] * 0
         #motivation
         self.motivations = [Motivation] * 0
         #robot serial com
@@ -895,7 +895,7 @@ class Robot:
     
     def add_reactive_system(
             self, 
-            behaviorsystem    #type: BehavioralSystem
+            behaviorsystem    #type: Reactive
         ):
         """
         The function takes a behavior as argument and adds it to the list of behaviors.
@@ -1170,14 +1170,13 @@ class Robot:
         #select behavior
         #if there is a reactive system activated behave
         reflex = False
-        for b_s in self.reactive_systems:
-            for b in b_s.get_behaviors():
-                if b.is_excited():
-                    if b.can_behave():
-                        print("behavior selected: " + b.get_name())
-                        print ("---")
-                        b.behave()
-                        reflex = True
+        for b in self.reactive_systems:
+            if b.is_excited():
+                if b.can_behave():
+                    print("behavior selected: " + b.get_name())
+                    print ("---")
+                    b.behave()
+                    reflex = True
         #else select behavior
         #first we get througt all the behavioral systems
         if not reflex:
@@ -1276,15 +1275,13 @@ def define_khepera():
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
     #withdraw behavior
-    avoid = BehavioralSystem("avoid", dr_avoid)
     withdraw = Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75)
     withdraw.add_secondary_effect(e_decrease_energy)
     withdraw.add_secondary_effect(e_increase_temperature)
-    avoid.add_behavior(withdraw)
     #behavioral system
     khepera.add_behavioral_system(food)
     khepera.add_behavioral_system(shade)
-    khepera.add_reactive_system(avoid)
+    khepera.add_reactive_system(withdraw)
 
     return khepera
 
