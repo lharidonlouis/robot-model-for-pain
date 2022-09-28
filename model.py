@@ -24,6 +24,7 @@
 # Copyright (c) 2022 Louis L'Haridon.  All rights reserved.
 
 # Modules
+from re import S
 import cstm_serial
 import random
 import time
@@ -428,6 +429,7 @@ class Stimulus:
         This function processes the stimulus.
         """
         self.size = len(self.data)
+        print(str(self.name), " , ", str(self.size))
         if self.inv:
             for i in range(self.size):
                 self.data[i] = 1.0 - ((self.data[i] - self.min_val) / (self.max_val - self.min_val))                    
@@ -541,6 +543,9 @@ class Behavior:
         """
         This will be redifined in the child classes
         """
+        pass
+
+    def is_excited(self):
         pass
 
     def get_main_effect(self):
@@ -815,7 +820,6 @@ class Motivation:
         """
         `update` is a function that calls `compute` and `stimulus.update`
         """
-        self.stimulus.update()
         self.compute()
 
     def set_drive(
@@ -895,13 +899,13 @@ class Robot:
     
     def add_reactive_system(
             self, 
-            behaviorsystem    #type: Reactive
+            reactive_bhv    #type: Reactive
         ):
         """
         The function takes a behavior as argument and adds it to the list of behaviors.
         @param behavior The behavior to add.
         """
-        self.reactive_systems.append(behaviorsystem)
+        self.reactive_systems.append(reactive_bhv)
 
 
     def add_motivation(
@@ -1162,6 +1166,9 @@ class Robot:
         #update motivations
         for m in self.motivations:
             m.update()
+        #update reactive stimulus
+        for s in self.stimuli:
+            s.update()
         #select motivation
         selected_mot = self.WTA()
         print("selected_mot : " + selected_mot.get_name())
@@ -1233,13 +1240,13 @@ def define_khepera():
     khepera.add_variable(Variable("energy", 0.95, 1.0, 0.05, True, 0.01))
     khepera.add_variable(Variable("temperature", 0.05, 0.1, 0.1, False, 0.005))
     #add sensors 
-    khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS-1, khepera))
-    khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
-    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
+    khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS, khepera))
+    khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 0, 7, khepera))
+    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 8, 12, khepera))
     #add our stimuli
     khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.06, 0.1, False))
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.1, 0.7, False))
-    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("us"), 0, 1.0, True))
+    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("us"), 0.01, 0.99, False))
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
     dr_decrease_temperature = Drive("decrease-temperature", False, khepera.get_var_by_name("temperature"))
@@ -1275,7 +1282,7 @@ def define_khepera():
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
     #withdraw behavior
-    withdraw = Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.75)
+    withdraw = Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.6)
     withdraw.add_secondary_effect(e_decrease_energy)
     withdraw.add_secondary_effect(e_increase_temperature)
     #behavioral system
