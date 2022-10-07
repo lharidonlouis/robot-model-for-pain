@@ -35,6 +35,7 @@ SIMULATION = False # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
+SPEED_ROBOT = 600 # Constant for speed. 1200 MAX
 MANUAL = 0 # Manual control.
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -174,11 +175,11 @@ class Motors:
         The function takes a left and right speed as arguments and returns a new instance of the class
         """
         if(self.left != 0.0):
-            left = self.left * 1200
+            left = self.left * SPEED_ROBOT
         else :
             left = 0
         if(self.right != 0.0):
-            right = self.right * 1200
+            right = self.right * SPEED_ROBOT
         else :
             right = 0
 
@@ -196,9 +197,9 @@ class Motors:
         @param right : float the speed of the right motor from -1.0 to 1.0
         """
         if(left != 0.0):
-            left =  left * 1200
+            left =  left * SPEED_ROBOT
         if(right != 0.0):
-            right = right * 1200
+            right = right * SPEED_ROBOT
         if not SIMULATION:
             self.robot.send_data('D,' + str(left) + ',' + str(right))
 
@@ -404,16 +405,20 @@ class Stimulus:
             self, 
             name,       #type: str
             sensor,     #type: Sensor
-            min_val,    #type:float 
-            max_val,    #type: float
+            min_val,    #type: int 
+            max_val,    #type: int
             inv         #type: bool
         ):
         self.name = name
         self.sensor = sensor
         self.size = len(sensor.get_norm_val())
         self.data = [0.0] * self.size
-        self.min_val = min_val
-        self.max_val = max_val
+        if(self.sensor.inv):
+            self.min_val = 1.0 - (float(min_val) / float(self.sensor.max-self.sensor.min))
+            self.max_val = 1.0 - float(max_val) / float(self.sensor.max-self.sensor.min)
+        else:
+            self.min_val = float(min_val) / float(self.sensor.max-self.sensor.min)
+            self.max_val = float(max_val) / float(self.sensor.max-self.sensor.min)
         self.inv = inv
 
     def get_data(self):
@@ -430,6 +435,8 @@ class Stimulus:
         """
         self.size = len(self.data)
         print(str(self.name), " , ", str(self.size))
+        print(self.min_val, self.max_val)
+        print(self.data)
         if self.inv:
             for i in range(self.size):
                 self.data[i] = 1.0 - ((self.data[i] - self.min_val) / (self.max_val - self.min_val))                    
@@ -445,7 +452,7 @@ class Stimulus:
                     self.data[i] = 0.0
             elif self.data[i] < 0.0:
                 self.data[i] = 0.0
-
+        print(self.data)
 
     def update(self):
         """
@@ -538,15 +545,6 @@ class Behavior:
         self.treshold = treshold
         self.main_effect = None #type: Effect
         self.secondary_effects = [Effect] * 0 #a list of secondary effects
-
-    def can_behave(self):
-        """
-        This will be redifined in the child classes
-        """
-        pass
-
-    def is_excited(self):
-        pass
 
     def get_main_effect(self):
         """
@@ -680,8 +678,7 @@ class Reactive(Behavior):
 
     def is_excited(self):
         """
-        The function is_excited takes the data of the associated sstimulus and 
-        determine if reactive shoud be activated
+        This will be redifined in the child classes
         """
         if((mean(self.associated_stimulus.data))>self.treshold):
             return True
@@ -758,6 +755,36 @@ class BehavioralSystem:
         @return The name of the behavioral system.
         """
         return self.name
+
+
+#The class ``Led'' dfines a led and its artibutes
+class Led:
+    def __init__(
+        self,
+        red,    #type: int
+        green,  #type: int
+        blue,   #type: int
+        robot,  #type: Robot
+    ):
+        self.red = red
+        self.green = green
+        self.blue = blue
+        self.robot = robot
+
+    def turn_off(self):
+        red = 0
+        green = 0
+        blue = 0
+
+    def set_rvb(self,red,green,blue):
+        self.red = red
+        self.green = green
+        self.blue = blue
+
+
+    def update(self):
+        if not SIMULATION:
+            self.robot.send_data('D,' + str(self.red) + ',' + str(self.green) + ',' + str(self.blue))
 
 
 # The class `motivation` defines a motivation and its attributes
@@ -1178,7 +1205,11 @@ class Robot:
         #if there is a reactive system activated behave
         reflex = False
         for b in self.reactive_systems:
+            print(b.get_name(), " : ", mean(b.associated_stimulus.data))
+            b.is_excited()
             if b.is_excited():
+                print("excited")
+                print(b.can_behave())
                 if b.can_behave():
                     print("behavior selected: " + b.get_name())
                     print ("---")
@@ -1198,7 +1229,7 @@ class Robot:
                             b.behave()
                             break
         #motor control
-        self.motors.update()
+        #   self.motors.update()
 
     def decode(self, data):
         """
@@ -1238,15 +1269,15 @@ def define_khepera():
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200)
     #add variables
     khepera.add_variable(Variable("energy", 0.95, 1.0, 0.05, True, 0.01))
-    khepera.add_variable(Variable("temperature", 0.05, 0.1, 0.1, False, 0.005))
+    khepera.add_variable(Variable("temperature", 0.05, 0.1, 0.1, False, 0.01))
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS, khepera))
-    khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 0, 7, khepera))
-    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 8, 12, khepera))
+    khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
+    khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
-    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 0.06, 0.1, False))
-    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 0.1, 0.7, False))
-    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("us"), 0.01, 0.99, False))
+    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 850, 920, False))
+    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 400, 555, False))
+    khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1023, False))
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
     dr_decrease_temperature = Drive("decrease-temperature", False, khepera.get_var_by_name("temperature"))
@@ -1259,14 +1290,14 @@ def define_khepera():
     #create effects
     e_increase_energy = Effect("increase-energy", khepera.get_var_by_name("energy"), False, 0.1)
     e_decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, 0.1)
-    e_decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, 0.01)
-    e_increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, 0.005)
+    e_decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, 0.001)
+    e_increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, 0.001)
     #eat and seek food behavior
     food = BehavioralSystem("food", dr_increase_energy)
-    eat = Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5)
+    eat = Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.3)
     eat.set_main_effect(e_increase_energy)
     eat.add_secondary_effect(e_increase_temperature)
-    seek_food = Appettitive("seek-food", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.5)
+    seek_food = Appettitive("seek-food", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.15)
     seek_food.add_secondary_effect(e_decrease_energy)
     seek_food.add_secondary_effect(e_increase_temperature)
     food.add_behavior(eat)
@@ -1276,13 +1307,13 @@ def define_khepera():
     cool_down = Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.3)
     cool_down.set_main_effect(e_decrease_temperature)
     cool_down.add_secondary_effect(e_decrease_energy)
-    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.3)
+    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.15)
     seek_shade.add_secondary_effect(e_decrease_energy)
     seek_shade.add_secondary_effect(e_increase_temperature)
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
     #withdraw behavior
-    withdraw = Behavior("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.6)
+    withdraw = Reactive("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.5)
     withdraw.add_secondary_effect(e_decrease_energy)
     withdraw.add_secondary_effect(e_increase_temperature)
     #behavioral system
