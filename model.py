@@ -434,9 +434,9 @@ class Stimulus:
         This function processes the stimulus.
         """
         self.size = len(self.data)
-        print(str(self.name), " , ", str(self.size))
-        print(self.min_val, self.max_val)
-        print(self.data)
+        #print(str(self.name), " , ", str(self.size))
+        #print(self.min_val, self.max_val)
+        #print(self.data)
         if self.inv:
             for i in range(self.size):
                 self.data[i] = 1.0 - ((self.data[i] - self.min_val) / (self.max_val - self.min_val))                    
@@ -452,7 +452,7 @@ class Stimulus:
                     self.data[i] = 0.0
             elif self.data[i] < 0.0:
                 self.data[i] = 0.0
-        print(self.data)
+        #print(self.data)
 
     def update(self):
         """
@@ -683,6 +683,9 @@ class Reactive(Behavior):
         if((mean(self.associated_stimulus.data))>self.treshold):
             return True
         else:
+            for i in self.associated_stimulus.data :
+                if i > 0.95:
+                    return True
             return False
 
     def behave(self):
@@ -1229,7 +1232,7 @@ class Robot:
                             b.behave()
                             break
         #motor control
-        #   self.motors.update()
+        self.motors.update()
 
     def decode(self, data):
         """
@@ -1275,7 +1278,7 @@ def define_khepera():
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
     khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
-    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 850, 920, False))
+    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 940, 955, False))
     khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 400, 555, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1023, False))
     #declare drives
@@ -1313,7 +1316,7 @@ def define_khepera():
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
     #withdraw behavior
-    withdraw = Reactive("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.5)
+    withdraw = Reactive("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.43)
     withdraw.add_secondary_effect(e_decrease_energy)
     withdraw.add_secondary_effect(e_increase_temperature)
     #behavioral system
