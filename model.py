@@ -764,15 +764,13 @@ class BehavioralSystem:
 class Led:
     def __init__(
         self,
-        red,    #type: int
-        green,  #type: int
-        blue,   #type: int
-        robot,  #type: Robot
+        red,    #type: int (0-63)
+        green,  #type: int (0-63)
+        blue   #type: int (0-63)
     ):
         self.red = red
         self.green = green
         self.blue = blue
-        self.robot = robot
 
     def turn_off(self):
         red = 0
@@ -784,11 +782,44 @@ class Led:
         self.green = green
         self.blue = blue
 
+    def set_led(
+        self,
+        color   #type: str
+    ):
+        if color == "red":
+            self.set_rvb(63,0,0)
+        elif color== "green":
+            self.set_rvb(0,63,0)
+        elif color == "blue":
+            self.set_rvb(0,0,63)
+        elif color == "yellow":
+            self.set_rvb(63,63,0)
+        elif color == "purple":
+            self.set_rvb(63,0,63)
+        elif color == "cyan":
+            self.set_rvb(0,63,63)
+        elif color == "white":
+            self.set_rvb(63,63,63)
+        elif color == "rose":
+            self.set_rvb(63,0,31)
+        elif color == "orange":
+            self.set_rvb(63,31,0)
 
-    def update(self):
-        if not SIMULATION:
-            self.robot.send_data('D,' + str(self.red) + ',' + str(self.green) + ',' + str(self.blue))
+    def set_led_intensity(
+        self, 
+        color,      #type: str
+        intensity   #type: float (0,1)
+    ):
+        value = int(63*intensity)
+        if color == "red":
+            self.set_rvb(value,0,0)
+        elif color== "green":
+            self.set_rvb(0,value,0)
+        elif color == "blue":
+            self.set_rvb(0,0,value)
 
+    def toStr(self):
+        return str(self.red) + "," + str(self.green) + "," + str(self.blue)
 
 # The class `motivation` defines a motivation and its attributes
 class Motivation:
@@ -880,6 +911,8 @@ class Robot:
         self.name = name
         self.port = port
         self.baudrate = baudrate
+        #robot leds
+        self.leds = [Led(0,0,0)] * 3  #type : list[Type[Led]]
         #motors
         self.motors = Motors(self)
         #physiological variables
@@ -1081,6 +1114,23 @@ class Robot:
                 return motivation
         return None
 
+    def get_left_led(self):
+        """
+        The function returns the left led.
+        """
+        return self.leds[0]
+
+    def get_right_led(self):
+        """
+        The function returns the right led.
+        """
+        return self.leds[1]
+    
+    def get_back_led(self):
+        """
+        The function returns the back led.
+        """
+        return self.leds[2]
 
     def write_header_data(
             self, 
@@ -1106,7 +1156,8 @@ class Robot:
             for m in self.motivations:
                 file.write("mot_" + m.get_name() + ",")
             file.write("motor_left" + ",")
-            file.write("motor_right")
+            file.write("motor_right"+",")
+            file.write("reactive")
             file.write("\n")
 
 
@@ -1131,7 +1182,15 @@ class Robot:
             for m in self.motivations:
                 file.write(str(m.get_intensity()) + ",")
             file.write(str(self.motors.get_left_speed()) + ",")
-            file.write(str(self.motors.get_right_speed()))
+            file.write(str(self.motors.get_right_speed())+",")
+            reflex = False
+            for b in self.reactive_systems:
+                b.is_excited()
+                if b.is_excited():
+                    print(b.can_behave())
+                    if b.can_behave():
+                        reflex = True
+            file.writable(str(reflex))
             file.write("\n")
         return iter+1        
 
@@ -1183,6 +1242,23 @@ class Robot:
             return True
         return False
 
+    def update_leds(self):
+        """
+        The function update_leds updates the leds of the robot and send data to update visual control
+        string sent to robot is as follows : "K, lr,lg,lb,rr,rg,rb,br,bg,bb"
+        """
+        if self.leds is not None:
+            success = 0
+            while(not success):
+                self.send_data("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
+                data = self.get_data()
+                data.replace('\r\n', '')
+                if(data != None):
+                    data = self.robot.decode(data)
+                    if(data[0] == "K"):
+                        success=1      
+            
+
     def update(self):
         """
         The update function updates the state of the robot
@@ -1211,7 +1287,6 @@ class Robot:
             print(b.get_name(), " : ", mean(b.associated_stimulus.data))
             b.is_excited()
             if b.is_excited():
-                print("excited")
                 print(b.can_behave())
                 if b.can_behave():
                     print("behavior selected: " + b.get_name())
@@ -1231,6 +1306,8 @@ class Robot:
                             print ("---")
                             b.behave()
                             break
+        #led update
+        self.update_leds()
         #motor control
         self.motors.update()
 
@@ -1271,8 +1348,8 @@ def define_khepera():
     """
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200)
     #add variables
-    khepera.add_variable(Variable("energy", 0.95, 1.0, 0.05, True, 0.01))
-    khepera.add_variable(Variable("temperature", 0.05, 0.1, 0.1, False, 0.01))
+    khepera.add_variable(Variable("energy", 0.5, 1.0, 0.05, True, 0.01))
+    khepera.add_variable(Variable("temperature", 0.5, 0.1, 0.1, False, 0.01))
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS, khepera))
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
@@ -1316,7 +1393,7 @@ def define_khepera():
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
     #withdraw behavior
-    withdraw = Reactive("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.43)
+    withdraw = Reactive("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.55)
     withdraw.add_secondary_effect(e_decrease_energy)
     withdraw.add_secondary_effect(e_increase_temperature)
     #behavioral system
@@ -1368,6 +1445,7 @@ if SIMULATION:
     filename = "test.csv"
 else:
     filename = "louis/res/" + timestr + ".csv"   
+    #filename = "louis/res/expe.csv"
 khepera.write_header_data(filename)
 iter = 0
 user_input = 'e'
