@@ -710,8 +710,6 @@ class Reactive(Behavior):
             self.main_impact()
         self.secondary_impact()
 
-
-
 # The class `BehavioralSystem` defines the behavioral system and its attributes
 # A behavioral system contains a list of behaviors sorted in order of priority of execution
 class BehavioralSystem:
@@ -1132,6 +1130,33 @@ class Robot:
         """
         return self.leds[2]
 
+    def set_led(
+        self, 
+        led,    #type: Led
+        color   #type: str
+    ):
+        """
+        The function sets the color of a led.
+        @param led The led to set.
+        @param color The color to set.
+        """
+        led.set_led(color)
+    
+
+    def set_led_intensity(
+        self,
+        led,        #type: Led
+        color,      #type: str
+        intensity,  #type: float
+    ):
+        """
+        The function sets the color of a led.
+        @param led The led to set.
+        @param color The color to set.
+        @param intensity The intensity to set.
+        """
+        led.set_led_intensity(color, intensity)
+
     def write_header_data(
             self, 
             filename    #type: str
@@ -1269,6 +1294,9 @@ class Robot:
         #update physiological variables
         for v in self.variables:
             v.update()
+        #update leds for variables
+        self.set_led_intensity(self.get_left_led(), "red", self.variables[0].get_value())
+        self.set_led_intensity(self.get_right_led(), "green", self.variables[0].get_value())
         #update motivations
         for m in self.motivations:
             m.update()
@@ -1292,6 +1320,7 @@ class Robot:
                     print("behavior selected: " + b.get_name())
                     print ("---")
                     b.behave()
+                    self.set_led(self.get_back_led(),"red")
                     reflex = True
         #else select behavior
         #first we get througt all the behavioral systems
@@ -1305,6 +1334,16 @@ class Robot:
                             print("behavior selected: " + b.get_name())
                             print ("---")
                             b.behave()
+                            if b.get_name == "cool-down":
+                                self.set_led(self.get_back_led(),"blue")
+                            elif b.get_name == "seek-shade":
+                                self.set_led(self.get_back_led(),"cyan")
+                            elif b.get_name == "eat":
+                                self.set_led(self.get_back_led(),"purple")
+                            elif b.get_name == "seek-food":
+                                self.set_led(self.get_back_led(),"rose")
+                            else:                                
+                                self.set_led(self.get_back_led(),"orange")
                             break
         #led update
         self.update_leds()
