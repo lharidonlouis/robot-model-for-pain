@@ -806,7 +806,7 @@ class Led:
     def set_led_intensity(
         self, 
         color,      #type: str
-        intensity   #type: float (0,1)
+        intensity   #type: float [0,1]
     ):
         value = int(63*intensity)
         if color == "red":
@@ -815,6 +815,8 @@ class Led:
             self.set_rvb(0,value,0)
         elif color == "blue":
             self.set_rvb(0,0,value)
+        elif color == "orange":
+            self.set_rvb(value, (value/2),0)
 
     def toStr(self):
         return str(self.red) + "," + str(self.green) + "," + str(self.blue)
@@ -910,7 +912,7 @@ class Robot:
         self.port = port
         self.baudrate = baudrate
         #robot leds
-        self.leds = [Led(0,0,0)] * 3  #type : list[Type[Led]]
+        self.leds = [Led(0,0,0), Led(0,0,0), Led(0,0,0)]      #type : list[Type[Led]]
         #motors
         self.motors = Motors(self)
         #physiological variables
@@ -1113,18 +1115,21 @@ class Robot:
         return None
 
     def get_left_led(self):
+        #type : () -> Led
         """
         The function returns the left led.
         """
         return self.leds[0]
 
     def get_right_led(self):
+        #type : () -> Led
         """
         The function returns the right led.
         """
         return self.leds[1]
     
     def get_back_led(self):
+        #type : () -> Led
         """
         The function returns the back led.
         """
@@ -1215,7 +1220,7 @@ class Robot:
                     print(b.can_behave())
                     if b.can_behave():
                         reflex = True
-            file.writable(str(reflex))
+            file.write(str(reflex))
             file.write("\n")
         return iter+1        
 
@@ -1272,16 +1277,9 @@ class Robot:
         The function update_leds updates the leds of the robot and send data to update visual control
         string sent to robot is as follows : "K, lr,lg,lb,rr,rg,rb,br,bg,bb"
         """
-        if self.leds is not None:
-            success = 0
-            while(not success):
-                self.send_data("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
-                data = self.get_data()
-                data.replace('\r\n', '')
-                if(data != None):
-                    data = self.robot.decode(data)
-                    if(data[0] == "K"):
-                        success=1      
+        if not SIMULATION:
+            print("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
+            self.send_data("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
             
 
     def update(self):
@@ -1295,8 +1293,8 @@ class Robot:
         for v in self.variables:
             v.update()
         #update leds for variables
-        self.set_led_intensity(self.get_left_led(), "red", self.variables[0].get_value())
-        self.set_led_intensity(self.get_right_led(), "green", self.variables[0].get_value())
+        self.get_left_led().set_led_intensity("green", self.variables[0].get_value())
+        self.get_right_led().set_led_intensity("orange", self.variables[1].get_value())
         #update motivations
         for m in self.motivations:
             m.update()
@@ -1320,7 +1318,7 @@ class Robot:
                     print("behavior selected: " + b.get_name())
                     print ("---")
                     b.behave()
-                    self.set_led(self.get_back_led(),"red")
+                    self.get_back_led().set_led("red")
                     reflex = True
         #else select behavior
         #first we get througt all the behavioral systems
@@ -1334,21 +1332,21 @@ class Robot:
                             print("behavior selected: " + b.get_name())
                             print ("---")
                             b.behave()
-                            if b.get_name == "cool-down":
-                                self.set_led(self.get_back_led(),"blue")
-                            elif b.get_name == "seek-shade":
-                                self.set_led(self.get_back_led(),"cyan")
-                            elif b.get_name == "eat":
-                                self.set_led(self.get_back_led(),"purple")
-                            elif b.get_name == "seek-food":
-                                self.set_led(self.get_back_led(),"rose")
+                            if b.get_name() == "cool-down":
+                                self.get_back_led().set_led("blue")
+                            elif b.get_name() == "seek-shade":
+                                self.get_back_led().set_led("cyan")
+                            elif b.get_name() == "eat":
+                                self.get_back_led().set_led("purple")
+                            elif b.get_name() == "seek-food":
+                                self.get_back_led().set_led("rose")
                             else:                                
-                                self.set_led(self.get_back_led(),"orange")
+                                self.get_back_led().set_led("orange")
                             break
-        #led update
-        self.update_leds()
         #motor control
         self.motors.update()
+        #led update
+        self.update_leds()
 
     def decode(self, data):
         """
