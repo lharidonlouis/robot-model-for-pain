@@ -20,7 +20,7 @@ filename1 =  str(sys.argv[1])+".csv"
 #filename1 = "/Users/lharidonlouis/Documents/Thesis/Work/pain_model/robot-model-for-pain/data_analysis/expe.csv"
 print(filename1)
 
-columns=["time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right"]
+columns=["time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right","reactive"]
 
 df = pd.read_csv(
     filename1,
@@ -102,19 +102,23 @@ plt.gca().set_xlim(left=0, right=max(df.time))
 
 plt.subplot(grid[3, 0:])
 plt.fill_between(df.time, df.mot_hunger, 0,
-                 where = (df.mot_hunger > df.mot_cold),
+                 where = (df.reactive == True),
                  color = 'r',
+                 alpha = 0.3)
+plt.fill_between(df.time, df.mot_hunger, 0,
+                 where = (df.mot_hunger > df.mot_cold),
+                 color = 'g',
                  alpha = 0.3)
 plt.fill_between(df.time, df.mot_cold, 0,
                  where = (df.mot_cold > df.mot_hunger),
                  color = 'b',
                  alpha = 0.3)
-plt.plot(df.time, df.mot_hunger,alpha=0.5,c='r')
+plt.plot(df.time, df.mot_hunger,alpha=0.5,c='g')
 plt.plot(df.time, df.mot_cold,alpha=0.5,c='b')
 plt.xlabel('Time (s)')
 plt.ylabel('Intensity of motivation')
 plt.title('Intensity of motivations over time')
-plt.legend(['Hunger', 'Cold'], loc='upper right')
+plt.legend(['Reactive','Hunger', 'Cold'], loc='upper right')
 plt.yticks(np.arange(0, 1.1, 0.1))
 plt.gca().set_ylim([0,1])
 #plt.gca().set_xlim(left=0, right=None)
