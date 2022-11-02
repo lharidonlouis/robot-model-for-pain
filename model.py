@@ -35,8 +35,10 @@ SIMULATION = False # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
-SPEED_ROBOT = 600 # Constant for speed. 1200 MAX
+SPEED_ROBOT = 400 # Constant for speed. 1200 MAX
 MANUAL = 0 # Manual control.
+GAIN = 0.001
+LOOSE = 0.0001
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -398,6 +400,19 @@ class Sensor:
                             #raw              
                             self.raw_val[i] = int(data[i+1])
                         self.slice(self.start, self.end)
+
+#The class `Nociceptor` defines a nociceptor
+class Nociceptor:
+    def __init__(        
+        self,
+        sensor,     #type: Sensor        
+        ):
+        self.sensor = sensor  
+        self.val = [float] * len(sensor.size)  
+
+    def update(self):
+        for i in self.sensor.raw_val:
+            self.val[i] = self.sensor.raw_val[i]
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
@@ -1280,6 +1295,13 @@ class Robot:
         if not SIMULATION:
             print("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
             self.send_data("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
+
+    def die(self):
+        if not SIMULATION:
+            self.get_left_led().set_led("white")
+            self.get_right_led().set_led("white")
+            self.get_back_led().set_led("white")
+            self.update_leds()
             
 
     def update(self):
@@ -1405,10 +1427,10 @@ def define_khepera():
     khepera.add_motivation(Motivation("cold", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
     khepera.get_motivation_by_name("cold").set_drive(dr_decrease_temperature)
     #create effects
-    e_increase_energy = Effect("increase-energy", khepera.get_var_by_name("energy"), False, 0.1)
-    e_decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, 0.1)
-    e_decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, 0.001)
-    e_increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, 0.001)
+    e_increase_energy = Effect("increase-energy", khepera.get_var_by_name("energy"), False, GAIN )
+    e_decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, GAIN)
+    e_decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, LOOSE)
+    e_increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, LOOSE)
     #eat and seek food behavior
     food = BehavioralSystem("food", dr_increase_energy)
     eat = Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.3)
@@ -1515,5 +1537,7 @@ while(khepera.is_alive()):
         khepera.motors.emergency_stop()
         print("Emergency stop")
         break
+
 khepera.motors.emergency_stop()
+khepera.die()
 # ----------------------------------------------------------------------------------------------------------------------
