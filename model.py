@@ -31,7 +31,7 @@ import time
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
-SIMULATION = False # True if simulation, false if real values
+SIMULATION = True # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
@@ -407,12 +407,35 @@ class Nociceptor:
         self,
         sensor,     #type: Sensor        
         ):
+        self.val = [float] * len(sensor.size)
         self.sensor = sensor  
-        self.val = [float] * len(sensor.size)  
+        self.data = [float] * len(sensor.size)  
+        self.prev_data = [float] * len(sensor.size)        
+
+    def compute_speed_impact(self):
+        #A function that that takes data actual and previous value to compute
+        #the value of the nociceptor as a speed
+        self.val = [0.0] * len(self.data)
+        for i in range(len(self.data)):
+            self.val[i] = abs(self.data[i] - self.prev_data[i])
+
+    def compute_circular_impact(self):
+        #a function that takes actual and previous value to compute the circular speed
+        #speed is computed for each sensor as the difference between the actual and previous value of its neighbours
+        self.val = [0.0] * len(self.data)
+        for i in range(len(self.data)):
+            if(i == 0):
+                self.val[i] = abs(self.data[i] - self.prev_data[len(self.data)-1])
+            else:
+                self.val[i] = abs(self.data[i] - self.prev_data[i-1])
+        
 
     def update(self):
-        for i in self.sensor.raw_val:
-            self.val[i] = self.sensor.raw_val[i]
+        self.prev_data = self.data[:]
+        self.data = self.sensor.get_norm_val()[:]
+        self.compute_speed_impact()
+        self.compute_circular_impact()
+
 
 #The class `Stimulus` defines a stimulus
 class Stimulus:
