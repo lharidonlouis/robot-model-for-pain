@@ -20,7 +20,7 @@ filename1 =  str(sys.argv[1])+".csv"
 #filename1 = "/Users/lharidonlouis/Documents/Thesis/Work/pain_model/robot-model-for-pain/data_analysis/expe.csv"
 print(filename1)
 
-#columns=["iter","time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right","reactive"]
+#names = ['iter', 'time', 'val_energy', 'val_temperature', 'def_energy', 'def_temperature', 'stim_food', 'stim_shade', 'stim_wall', 'mot_hunger', 'mot_cold', 'motor_left', 'motor_right', 'reactive', 'sensor_us_0', 'sensor_us_1', 'sensor_us_2', 'sensor_us_3', 'sensor_us_4', 'sensor_prox_0', 'sensor_prox_1', 'sensor_prox_2', 'sensor_prox_3', 'sensor_prox_4', 'sensor_prox_5', 'sensor_prox_6', 'sensor_prox_7', 'sensor_prox_8', 'sensor_prox_9', 'sensor_prox_10', 'sensor_prox_11', 'sensor_gnd_0', 'sensor_gnd_1', 'sensor_gnd_2', 'sensor_gnd_3', 'sensor_gnd_4', 'sensor_gnd_5', 'sensor_gnd_6', 'sensor_gnd_7', 'sensor_gnd_8', 'sensor_gnd_9', 'sensor_gnd_10', 'sensor_gnd_11', 'speed_1', 'speed_2', 'speed_3', 'speed_4', 'speed_5', 'speed_6', 'speed_7', 'speed_8', 'speed_9', 'speed_10', 'speed_11', 'speed_12', 'circ_1', 'circ_2', 'circ_3', 'circ_4', 'circ_5', 'circ_6', 'circ_7', 'circ_8', 'circ_9', 'circ_10', 'circ_11', 'circ_12', 'noci_1', 'noci_2', 'noci_3', 'noci_4', 'noci_5', 'noci_6', 'noci_7', 'noci_8', 'noci_9', 'noci_10', 'noci_11', 'noci_12', 'Unnamed:70']
 
 df = pd.read_csv(
     filename1,
@@ -29,6 +29,7 @@ df = pd.read_csv(
 )
 list(df.columns)
 
+
 # df = pd.read_csv(
 #     filename1,
 #     name = columns,
@@ -36,7 +37,6 @@ list(df.columns)
 #     skiprows=1
 # )
 
-#print(res.to_string())
 
 df.time = df.time.div(1000)
 
@@ -52,6 +52,8 @@ fig = plt.figure(figsize=(8.27,11.7)) #to get A4 portrait format
 grid = plt.GridSpec(4, 2, wspace=0.5, hspace=0.5)
 
 
+
+####### PLOT deficits #######
 plt.subplot(grid[0:2, 0:])
 #plot df.def_energy and df.def_temperature in 2d position with color varying with time
 points = np.array([df.def_energy, df.def_temperature]).T.reshape(-1, 1, 2)
@@ -74,7 +76,7 @@ plt.gca().set_xlim([0,1])
 
 
 
-
+####### PLOT Variables level #######
 plt.subplot(grid[2, 0:])
 plt.plot(df.time, df.val_energy,alpha=0.5,c='m')
 plt.plot(df.time, df.val_temperature,alpha=0.5,c='b')
@@ -100,13 +102,7 @@ plt.gca().set_ylim([0,1])
 plt.gca().set_xlim(left=0, right=max(df.time))
 
 
-# plt.subplot(grid[2, 1])
-# plt.plot(df.time, df.mot, alpha=0.5, c='g')
-# plt.gca().set_ylabel(["Hunger","Cold"])
-# plt.xlabel('Time (s)')
-# plt.ylabel('Selected motivation')
-# plt.title('Selected motivation over time')
-
+####### PLOT motivatio s #######
 plt.subplot(grid[3, 0:])
 plt.fill_between(df.time, df.mot_hunger, 0,
                  where = (df.reactive == True),
@@ -130,7 +126,6 @@ plt.yticks(np.arange(0, 1.1, 0.1))
 plt.gca().set_ylim([0,1])
 #plt.gca().set_xlim(left=0, right=None)
 plt.gca().set_xlim(left=0, right=max(df.time))
-
 
 
 

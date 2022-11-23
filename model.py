@@ -1274,6 +1274,9 @@ class Robot:
             file.write("motor_left" + ",")
             file.write("motor_right"+",")
             file.write("reactive"+",")
+            for s in self.sensors:
+                for i in range(len(s.get_norm_val())):
+                    file.write("sensor_" + s.get_name() + "_" + str(i) + ",")
             for i in range(len(self.nociceptor.speed_val)):
                 file.write("speed_" + str(i+1) + ",")
             for i in range(len(self.nociceptor.circular_val)):
@@ -1314,6 +1317,9 @@ class Robot:
                     if b.can_behave():
                         reflex = True
             file.write(str(reflex)+",")
+            for s in self.sensors:
+                for i in range(len(s.get_norm_val())):
+                    file.write(str(s.get_norm_val()[i]) + ",")
             for i in range(len(self.nociceptor.speed_val)):
                 file.write(str(self.nociceptor.speed_val[i])+",")
             for i in range(len(self.nociceptor.circular_val)):
