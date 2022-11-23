@@ -77,9 +77,7 @@ def invert(
     """
     l=[]
     for i in list:
-        print(i)
         l.append(1.0-i)
-        print(l)
     
     return l
 
@@ -663,12 +661,10 @@ class Behavior:
         self.secondary_effects.append(effect)
 
     def main_impact(self):
-        print("effect: ", self.main_effect.get_name())
         self.main_effect.impact()
 
     def secondary_impact(self):
         for e in self.secondary_effects:
-            print("effect: ", e.get_name())
             e.impact()
 
 
@@ -1265,8 +1261,6 @@ class Robot:
         with open(filename, "w") as file:
             file.write("iter" +  ",")
             file.write("time" +  ",")
-            i = 1
-            print(i)
             for v in self.variables:
                 file.write("val_" + v.get_name() + ",")
             for v in self.variables:
@@ -1284,8 +1278,8 @@ class Robot:
     def save(
             self, 
             filename,   #type: str
-            time,        #type: int
-            iter        #type: int
+            time,       #type: int
+            iter        #type: float
         ):
         """ 
         The function saves the robot in a file.
@@ -1294,7 +1288,7 @@ class Robot:
         """
         with open(filename, "a+") as file:
             file.write(str(iter) + ",")
-            file.write(str(time) + ",")
+            file.write(str(int(time)) + ",")
             for v in self.variables:
                 file.write(str(v.get_value()) + ",")
             for v in self.variables:
@@ -1309,7 +1303,6 @@ class Robot:
             for b in self.reactive_systems:
                 b.is_excited()
                 if b.is_excited():
-                    print(b.can_behave())
                     if b.can_behave():
                         reflex = True
             file.write(str(reflex))
@@ -1370,15 +1363,18 @@ class Robot:
         string sent to robot is as follows : "K, lr,lg,lb,rr,rg,rb,br,bg,bb"
         """
         if not simulation:
-            print("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
-            self.send_data("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
+            print("----------------------LED---------------------------")
+            str = "K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr()
+            print(str)
+            self.send_data(str)
+            print("----------------------------------------------------")
 
     def die(self, simulation = False):
         if not simulation:
             self.get_left_led().set_led("white")
             self.get_right_led().set_led("white")
             self.get_back_led().set_led("white")
-            self.update_leds()
+            self.update_leds(simulation)
             
 
     def update(self, debug = False, simulation = False):
@@ -1405,7 +1401,7 @@ class Robot:
         selected_mot = self.WTA()
         print("selected_mot : " + selected_mot.get_name())
         print("selected drive " + str(selected_mot.get_drive().get_name()))
-        print ("---")
+        print ("------")
         #select behavior
         #if there is a reactive system activated behave
         reflex = False
@@ -1413,10 +1409,10 @@ class Robot:
             print(b.get_name(), " : ", mean(b.associated_stimulus.data))
             b.is_excited()
             if b.is_excited():
-                print(b.can_behave())
                 if b.can_behave():
+                    print("REFLEX")
                     print("behavior selected: " + b.get_name())
-                    print ("---")
+                    print("---")
                     b.behave()
                     self.get_back_led().set_led("red")
                     reflex = True
@@ -1549,6 +1545,7 @@ def define_khepera(simulation = False):
 
 def display(
         robot,  #type: Robot
+        i,      #type: int
         t       #type: int
     ):
     """
@@ -1558,6 +1555,7 @@ def display(
     """
     print("-------------------INFO-----------------------------")
     print("time : " + "{0:0.2f}".format(float(t/1000)) + "s")
+    print("iter : " + str(i))
     print("Robot name      : " + robot.name)
     print("Serial          : " + robot.port + " | bps : " + str(robot.baudrate))
     print("-------------------VAL------------------------------")
@@ -1578,6 +1576,7 @@ def display(
     print("---------------------MOTORS-------------------------")
     print("left : " + "{0:0.2f}".format(robot.get_motors().get_left_speed()) + " | right : " + "{0:0.2f}".format(robot.get_motors().get_right_speed()))
     print("----------------------------------------------------")
+    print("")
 
 
 # MAIN CODE
@@ -1602,6 +1601,7 @@ if not sys.argv[1] or sys.argv[1] == "-h":
 elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or (sys.argv[1] == '-m')):
     #check if this is a simulation or a debug mode
     debug = False
+    simulation = False
     if sys.argv[1] == "-d":
         debug = True
     elif sys.argv[1] == "-s":
@@ -1647,20 +1647,30 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
                 break
     #run, debug or simulation mode
     elif sys.argv[1] == "-r" or sys.argv[1] == "-s" or sys.argv[1] == "-d":
-        ts = int(round(time.time() * 1000))
+        #if not simulation wait 3s to unplug robot
+        if sys.argv[1] == "-r":
+            time.sleep(3)
+        #get start time
+        ts = float(time.time() * 1000)
         iter = 0
+        #while robot is alive, loop
         while(khepera.is_alive()):
+            #catch keyboard interruption
             try:
+                #update
                 khepera.update(debug, simulation)
-                time_since_start = int(round(time.time() * 1000)) - ts
+                #compute time and iteration
+                time_since_start = float(time.time() * 1000) - ts
                 iter = khepera.save(filename, time_since_start, iter)
-                display(khepera, time_since_start)
+                #display
+                display(khepera, iter, time_since_start)
+                #wait until next iteration
                 time.sleep(TIME_SLEEP)
             except KeyboardInterrupt:
                 khepera.motors.emergency_stop(simulation)
                 print("Emergency stop")
                 break
-
+        #end of run
         khepera.motors.emergency_stop(simulation)
         print("robot is dead")
         khepera.die(simulation)    
