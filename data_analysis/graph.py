@@ -20,7 +20,7 @@ filename1 =  str(sys.argv[1])+".csv"
 #filename1 = "/Users/lharidonlouis/Documents/Thesis/Work/pain_model/robot-model-for-pain/data_analysis/expe.csv"
 print(filename1)
 
-columns=["time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right","reactive"]
+columns=["iter","time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right","reactive"]
 
 df = pd.read_csv(
     filename1,
@@ -31,7 +31,7 @@ df = pd.read_csv(
 
 #print(res.to_string())
 
-df.time = df.time.div(200)
+df.time = df.time.div(1000)
 
 #for each line in df, write the name of the max row between mot_hunger and mot_cold
 df['mot'] = df[['mot_hunger', 'mot_cold']].idxmax(axis=1)

@@ -43,12 +43,12 @@ import sys
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
-TIME_SLEEP = 0.05 # Time between each simulation step
-N_US_SENSORS = 5 # Number of UltraSonic Sensors.
-N_IR_SENSORS = 12 # Number of IR Sensors.
-SPEED_ROBOT = 400 # Constant for speed. 1200 MAX
-GAIN = 0.001
-LOOSE = 0.0001
+TIME_SLEEP = 0.05   #Time between each simulation step
+N_US_SENSORS = 5    #Number of UltraSonic Sensors.
+N_IR_SENSORS = 12   #Number of IR Sensors.
+SPEED_ROBOT = 400   #Constant for speed. 1200 MAX
+GAIN = 0.001        #constant for gain when consume resource
+LOOSE = 0.0001      #constant for loose when behave
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -1263,6 +1263,7 @@ class Robot:
         @return The iter+1 is being returned.
         """
         with open(filename, "w") as file:
+            file.write("iter" +  ",")
             file.write("time" +  ",")
             i = 1
             print(i)
@@ -1283,6 +1284,7 @@ class Robot:
     def save(
             self, 
             filename,   #type: str
+            time,        #type: int
             iter        #type: int
         ):
         """ 
@@ -1292,6 +1294,7 @@ class Robot:
         """
         with open(filename, "a+") as file:
             file.write(str(iter) + ",")
+            file.write(str(time) + ",")
             for v in self.variables:
                 file.write(str(v.get_value()) + ",")
             for v in self.variables:
@@ -1545,7 +1548,8 @@ def define_khepera(simulation = False):
     return khepera
 
 def display(
-        robot #type: Robot
+        robot,  #type: Robot
+        t       #type: int
     ):
     """
     It displays the robot's attributes
@@ -1553,6 +1557,7 @@ def display(
     @param robot the robot object
     """
     print("-------------------INFO-----------------------------")
+    print("time : " + "{0:0.2f}".format(float(t/1000)) + "s")
     print("Robot name      : " + robot.name)
     print("Serial          : " + robot.port + " | bps : " + str(robot.baudrate))
     print("-------------------VAL------------------------------")
@@ -1642,12 +1647,14 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
                 break
     #run, debug or simulation mode
     elif sys.argv[1] == "-r" or sys.argv[1] == "-s" or sys.argv[1] == "-d":
+        ts = int(round(time.time() * 1000))
         iter = 0
         while(khepera.is_alive()):
             try:
                 khepera.update(debug, simulation)
-                iter = khepera.save(filename, iter)
-                display(khepera)
+                time_since_start = int(round(time.time() * 1000)) - ts
+                iter = khepera.save(filename, time_since_start, iter)
+                display(khepera, time_since_start)
                 time.sleep(TIME_SLEEP)
             except KeyboardInterrupt:
                 khepera.motors.emergency_stop(simulation)
