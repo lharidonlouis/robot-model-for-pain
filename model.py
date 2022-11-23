@@ -43,7 +43,7 @@ import sys
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
-TIME_SLEEP = 0.1 # Time between each simulation step
+TIME_SLEEP = 0.05 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
 SPEED_ROBOT = 400 # Constant for speed. 1200 MAX
@@ -157,10 +157,10 @@ class Motors:
         """
         self.right = right
 
-    def emergency_stop(self):
+    def emergency_stop(self, simulation = False):
         self.left = 0.0
         self.right = 0.0
-        self.drive()
+        self.drive(simulation)
 
     def turn_right(self):
         self.left = -0.5
@@ -182,7 +182,7 @@ class Motors:
         self.left = 1.0
         self.right = 1.0
 
-    def drive(self):
+    def drive(self, simulation=False):
         """
         The function takes a left and right speed as arguments and returns a new instance of the class
         """
@@ -194,8 +194,8 @@ class Motors:
             right = self.right * SPEED_ROBOT
         else :
             right = 0
-
-        self.robot.send_data('D,' + str(left) + ',' + str(right))
+        if not simulation:
+            self.robot.send_data('D,' + str(left) + ',' + str(right))
                 
     def drive_lr(
             self, 
@@ -214,11 +214,11 @@ class Motors:
         self.robot.send_data('D,' + str(left) + ',' + str(right))
 
 
-    def update(self):
+    def update(self, simulation = False):
         """
         The function updates the speed of the left and right motors.
         """
-        self.drive()
+        self.drive(simulation)
 
 # The class variable defines a phhysiological variable
 class Variable:
@@ -692,11 +692,11 @@ class Appettitive(Behavior):
         left_drive = 0.0
         right_drive = 0.0
         if(mean(self.associated_stimulus.data)>0.1):
-            for i in range(len(self.associated_stimulus.data)/2):
+            for i in range(int(len(self.associated_stimulus.data)/2)):
                 right_drive = right_drive + self.associated_stimulus.data[i]
-                left_drive = left_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
-            left_drive = left_drive / (len(self.associated_stimulus.data)/2)
-            right_drive = right_drive / (len(self.associated_stimulus.data)/2)
+                left_drive = left_drive + self.associated_stimulus.data[i+int(len(self.associated_stimulus.data)/2)]
+            left_drive = left_drive / (int(len(self.associated_stimulus.data)/2))
+            right_drive = right_drive / (int(len(self.associated_stimulus.data)/2))
             left = left_drive * 2 
             right = right_drive * 2
         else:
@@ -766,11 +766,11 @@ class Reactive(Behavior):
         """
         left_drive = 0.0
         right_drive = 0.0
-        for i in range(len(self.associated_stimulus.data)/2):
+        for i in range(int(len(self.associated_stimulus.data)/2)):
             left_drive = left_drive + self.associated_stimulus.data[i]
-            right_drive = right_drive + self.associated_stimulus.data[i+len(self.associated_stimulus.data)/2]
-        left_drive = left_drive / (len(self.associated_stimulus.data)/2)
-        right_drive = right_drive / (len(self.associated_stimulus.data)/2)
+            right_drive = right_drive + self.associated_stimulus.data[i+int(len(self.associated_stimulus.data)/2)]
+        left_drive = left_drive / (int(len(self.associated_stimulus.data)/2))
+        right_drive = right_drive / (int(len(self.associated_stimulus.data)/2))
         left = left_drive * 2 
         right = - right_drive * 2 
         self.motors.set(left, right)
@@ -1262,7 +1262,7 @@ class Robot:
         
         @return The iter+1 is being returned.
         """
-        with open(filename, "a") as file:
+        with open(filename, "w") as file:
             file.write("time" +  ",")
             i = 1
             print(i)
@@ -1444,7 +1444,7 @@ class Robot:
         if not debug:
             self.motors.update(simulation)
         #led update
-        self.update_leds()
+        self.update_leds(simulation)
 
     def decode(self, data):
         """
@@ -1483,8 +1483,8 @@ def define_khepera(simulation = False):
     """
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200, simulation)
     #add variables
-    khepera.add_variable(Variable("energy", 0.5, 1.0, 0.05, True, 0.01))
-    khepera.add_variable(Variable("temperature", 0.5, 0.1, 0.1, False, 0.01))
+    khepera.add_variable(Variable("energy", 0.5, 0.95, 0.05, True, 0.01))
+    khepera.add_variable(Variable("temperature", 0.5, 0.05, 0.05, False, 0.01))
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS, khepera))
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
@@ -1609,7 +1609,7 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
     if sys.argv[1] == "-r":
         filename = "louis/res/"+sys.argv[6] + ".csv"  if len(sys.argv) > 6 else "louis/res/data.csv"
     else:
-        filename =  sys.argv[6] + ".csv"  if len(sys.argv) > 6 else "data.csv"
+        filename =  sys.argv[6] + ".csv"  if len(sys.argv) > 6 else "data_analysis/data.csv"
 
     khepera.write_header_data(filename)
     #manual control
@@ -1650,11 +1650,11 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
                 display(khepera)
                 time.sleep(TIME_SLEEP)
             except KeyboardInterrupt:
-                khepera.motors.emergency_stop()
+                khepera.motors.emergency_stop(simulation)
                 print("Emergency stop")
                 break
 
-        khepera.motors.emergency_stop()
+        khepera.motors.emergency_stop(simulation)
         print("robot is dead")
         khepera.die(simulation)    
 else:
