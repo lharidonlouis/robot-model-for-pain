@@ -38,24 +38,24 @@ socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
 ## command infos 
 ``model.py`` has different options to run with a simulation mode, a debug mode, a manual mode and a run mode
 
-usage :
+### usage :
 - ``model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)``
 
-options :
+### options :
 - -r: run
 - -d: debug
 - -s: simulation
 - -m : manual
 - -h : help
 
-values :
+### values :
 - lower_bound_food : lower bound of the food stimulus - default : 940
 - upper_bound_food : upper bound of the food stimulus - default : 955
 - lower_bound_shade : lower bound of the shade stimulus - default : 450
 - tupper_bound_shade : upper bound of the shade stimulus - default : 550
 - name_of_file : name of the file where the data will be saved - default : data.csv
 
-example : 
+### example : 
 - model.py -r 940 955 450 550 "expriment_1"
 
 
