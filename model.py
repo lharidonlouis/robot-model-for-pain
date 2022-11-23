@@ -17,6 +17,17 @@
 # - The model is meant to communicate with robot via serial port.
 # - If you want to change the robot see Motors.drive() and Sensors.update()
 #
+# @section requirements_doxygen_example Run
+# //clean folder with
+# rm louis/res/*
+# //fake serial with
+# socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
+# //run the server with
+# ./server &
+# //run the client with
+# python louis/model.py -r lower_limit_food upper_limit_food lower_limit_shade upper_limit_shade "name_of_run"   
+# -d can be used for debug mode (no motor activated)
+#
 # @section todo_doxygen_example TODO
 # - debug motor control
 # - lauch experiments
