@@ -39,15 +39,14 @@ from re import S
 import cstm_serial
 import random
 import time
+import sys
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
-SIMULATION = False # True if simulation, false if real values
 TIME_SLEEP = 0.1 # Time between each simulation step
 N_US_SENSORS = 5 # Number of UltraSonic Sensors.
 N_IR_SENSORS = 12 # Number of IR Sensors.
 SPEED_ROBOT = 400 # Constant for speed. 1200 MAX
-MANUAL = 0 # Manual control.
 GAIN = 0.001
 LOOSE = 0.0001
 # ----------------------------------------------------------------------------------------------------------------------
@@ -196,8 +195,7 @@ class Motors:
         else :
             right = 0
 
-        if not SIMULATION:
-            self.robot.send_data('D,' + str(left) + ',' + str(right))
+        self.robot.send_data('D,' + str(left) + ',' + str(right))
                 
     def drive_lr(
             self, 
@@ -213,8 +211,7 @@ class Motors:
             left =  left * SPEED_ROBOT
         if(right != 0.0):
             right = right * SPEED_ROBOT
-        if not SIMULATION:
-            self.robot.send_data('D,' + str(left) + ',' + str(right))
+        self.robot.send_data('D,' + str(left) + ',' + str(right))
 
 
     def update(self):
@@ -382,11 +379,11 @@ class Sensor:
         self.raw_val=self.raw_val[start:end]
         #self.size = len(self.norm_val)
 
-    def update(self):
+    def update(self, simulation = False):
         """
         This function updates the value of the sensor.
         """
-        if SIMULATION:
+        if simulation:
                 for i in range(len(self.norm_val)):
                     self.raw_val[i] = random.randint(self.min, self.max)
                     self.norm_val[i] = ( (float(self.raw_val[i]) - self.min) / (self.max - self.min) )
@@ -973,7 +970,8 @@ class Robot:
             self,
             name,       #type: str 
             port,       #type: str 
-            baudrate    #type: str
+            baudrate,   #type: str
+            simulation = False, #type: bool
         ):
         """
         A class that defines the robot.
@@ -999,7 +997,7 @@ class Robot:
         #motivation
         self.motivations = [Motivation] * 0
         #robot serial com
-        if not SIMULATION:
+        if not simulation:
             self.com = cstm_serial.SerialPort(port, baudrate)
         
     def add_variable(
@@ -1344,30 +1342,30 @@ class Robot:
             return True
         return False
 
-    def update_leds(self):
+    def update_leds(self, simulation = False):
         """
         The function update_leds updates the leds of the robot and send data to update visual control
         string sent to robot is as follows : "K, lr,lg,lb,rr,rg,rb,br,bg,bb"
         """
-        if not SIMULATION:
+        if not simulation:
             print("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
             self.send_data("K," + self.get_left_led().toStr() + "," + self.get_right_led().toStr() + "," + self.get_back_led().toStr())
 
-    def die(self):
-        if not SIMULATION:
+    def die(self, simulation = False):
+        if not simulation:
             self.get_left_led().set_led("white")
             self.get_right_led().set_led("white")
             self.get_back_led().set_led("white")
             self.update_leds()
             
 
-    def update(self):
+    def update(self, debug = False, simulation = False):
         """
         The update function updates the state of the robot
         """
         #update sensors
         for s in self.sensors:
-            s.update()
+            s.update(simulation)
         #update physiological variables
         for v in self.variables:
             v.update()
@@ -1423,7 +1421,8 @@ class Robot:
                                 self.get_back_led().set_led("orange")
                             break
         #motor control
-        self.motors.update()
+        if not debug:
+            self.motors.update(simulation)
         #led update
         self.update_leds()
 
@@ -1454,7 +1453,7 @@ class Robot:
 ########################################## MAIN CODE #######################################################
 ############################################################################################################
 
-def define_khepera():
+def define_khepera(simulation = False):
     #type: (...) -> Robot
     """
     We create a robot called khepera, add variables, sensors, stimuli, drives, motivations, effects, and
@@ -1462,7 +1461,7 @@ def define_khepera():
     
     @return A robot object
     """
-    khepera = Robot("khepera-iv", '/dev/ttyS1', 115200)
+    khepera = Robot("khepera-iv", '/dev/ttyS1', 115200, simulation)
     #add variables
     khepera.add_variable(Variable("energy", 0.5, 1.0, 0.05, True, 0.01))
     khepera.add_variable(Variable("temperature", 0.5, 0.1, 0.1, False, 0.01))
@@ -1471,8 +1470,12 @@ def define_khepera():
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
     khepera.add_sensor(Sensor("gnd", N_IR_SENSORS, 'N', 'n', 0, 1023, 1, 8, 12, khepera))
     #add our stimuli
-    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), 940, 955, False))
-    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), 400, 555, False))
+    lower_bound_food = int(sys.argv[2]) if len(sys.argv) > 2 else 940
+    upper_bound_food = int(sys.argv[3]) if len(sys.argv) > 3 else 955
+    khepera.add_stimulus(Stimulus("food", khepera.get_sensor_by_name("gnd"), lower_bound_food, upper_bound_food, False))
+    lower_bound_shade = int(sys.argv[4]) if len(sys.argv) > 4 else 400
+    upper_bound_shade = int(sys.argv[5]) if len(sys.argv) > 5 else 555
+    khepera.add_stimulus(Stimulus("shade", khepera.get_sensor_by_name("gnd"), lower_bound_shade, upper_bound_shade, False))
     khepera.add_stimulus(Stimulus("wall", khepera.get_sensor_by_name("prox"), 0, 1023, False))
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
@@ -1552,49 +1555,88 @@ def display(
 
 # MAIN CODE
 # ----------------------------------------------------------------------------------------------------------------------
-# It creates an object of the class `robot` and assigns it to the variable `khepera`.
-khepera = define_khepera()
-#info to store file
-timestr = time.strftime("%Y%m%d-%H%M%S")
-#append .dat to timestr
-if SIMULATION:
-    filename = "test.csv"
-else:
-    filename = "louis/res/" + timestr + ".csv"   
-    #filename = "louis/res/expe.csv"
-khepera.write_header_data(filename)
-iter = 0
-user_input = 'e'
-while(khepera.is_alive()):
-    try:
-        if MANUAL :
-            print("z,q,s,d to controll - a to stop : ")
-            #user_input = raw_input()
-            if user_input == 'a':
-                khepera.motors.emergency_stop()
-                break
-            elif user_input == 'e':
-                khepera.motors.stop()
-            elif user_input == 'z':
-                khepera.motors.forward()
-            elif user_input == 'q':
-                khepera.motors.turn_left()
-            elif user_input == 's':
-                khepera.motors.backward()
-            elif  user_input == 'd':
-                khepera.motors.turn_right()
-            else : 
-                pass
-        khepera.update()
-        #khepera.has_shock(khepera.get_var_by_name("integrity"), khepera.get_stimulus_by_name("wall"))
-        display(khepera)
-        iter = khepera.save(filename, iter)
-        time.sleep(TIME_SLEEP)
-    except KeyboardInterrupt:
-        khepera.motors.emergency_stop()
-        print("Emergency stop")
-        break
+if not sys.argv[1] or sys.argv[1] == "-h":
+    print("usage : model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)]")
+    print("options :")
+    print("\t-r: run")
+    print("\t-d: debug")
+    print("\t-s: simulation")
+    print("\t-m : manual")
+    print("\t-h : help")
+    print("values :")
+    print("\tlower_bound_food : lower bound of the food stimulus - def 940")
+    print("\tupper_bound_food : upper bound of the food stimulus - def 955")
+    print("\tlower_bound_shade : lower bound of the shade stimulus - def 450")
+    print("\tupper_bound_shade : upper bound of the shade stimulus - def 550")
+    print("\tname_of_file : name of the file where the data will be saved - def data.csv")
+    print("example : ")
+    print('\tmodel.py -r 940 955 450 550 "expriment_1"')
+    exit(0)
+elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or (sys.argv[1] == '-m')):
+    #check if this is a simulation or a debug mode
+    debug = False
+    if sys.argv[1] == "-d":
+        debug = True
+    elif sys.argv[1] == "-s":
+        simulation = True
 
-khepera.motors.emergency_stop()
-khepera.die()
+    # It creates an object of the class `robot` and assigns it to the variable `khepera`.
+    khepera = define_khepera(simulation)
+
+    #info to store data
+    if sys.argv[1] == "-r":
+        filename = "louis/res/"+sys.argv[6] + ".csv"  if len(sys.argv) > 6 else "louis/res/data.csv"
+    else:
+        filename =  sys.argv[6] + ".csv"  if len(sys.argv) > 6 else "data.csv"
+
+    khepera.write_header_data(filename)
+    #manual control
+    if sys.argv[1] == "-m":
+        user_input = 'e'
+        while(khepera.is_alive()):
+            try:
+                print("z,q,s,d to controll - a to stop : ")
+                #user_input = raw_input()
+                if user_input == 'a':
+                    khepera.motors.emergency_stop()
+                    break
+                elif user_input == 'e':
+                    khepera.motors.stop()
+                elif user_input == 'z':
+                    khepera.motors.forward()
+                elif user_input == 'q':
+                    khepera.motors.turn_left()
+                elif user_input == 's':
+                    khepera.motors.backward()
+                elif  user_input == 'd':
+                    khepera.motors.turn_right()
+                else : 
+                    pass
+                khepera.motors.update()
+                time.sleep(TIME_SLEEP)
+            except KeyboardInterrupt:
+                khepera.motors.emergency_stop()
+                print("Emergency stop")
+                break
+    #run, debug or simulation mode
+    elif sys.argv[1] == "-r" or sys.argv[1] == "-s" or sys.argv[1] == "-d":
+        iter = 0
+        while(khepera.is_alive()):
+            try:
+                khepera.update(debug, simulation)
+                iter = khepera.save(filename, iter)
+                display(khepera)
+                time.sleep(TIME_SLEEP)
+            except KeyboardInterrupt:
+                khepera.motors.emergency_stop()
+                print("Emergency stop")
+                break
+
+        khepera.motors.emergency_stop()
+        print("robot is dead")
+        khepera.die(simulation)    
+else:
+    print("error : unknown option")
+    print("python3 model.py -h for help")
+    exit(0)
 # ----------------------------------------------------------------------------------------------------------------------
