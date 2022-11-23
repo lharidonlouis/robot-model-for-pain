@@ -33,22 +33,26 @@ socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
 ./server &
 //run the client with
 // python louis/model.py
+```
+
+## command infos 
+
 > usage : model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)]")
 > options :")
->>-r: run")
->>-d: debug")
->>-s: simulation")
->>-m : manual")
->>-h : help")
->values :")
->>lower_bound_food : lower bound of the food stimulus - def 940")
->>upper_bound_food : upper bound of the food stimulus - def 955")
->>lower_bound_shade : lower bound of the shade stimulus - def 450")
->>tupper_bound_shade : upper bound of the shade stimulus - def 550")
->>name_of_file : name of the file where the data will be saved - def data.csv")
->example : ")
->>model.py -r 940 955 450 550 "expriment_1"')
-```
+>> -r: run")
+>> -d: debug")
+>> -s: simulation")
+>> -m : manual")
+>> -h : help")
+> values :")
+>> lower_bound_food : lower bound of the food stimulus - def 940")
+>>u pper_bound_food : upper bound of the food stimulus - def 955")
+>> lower_bound_shade : lower bound of the shade stimulus - def 450")
+>> tupper_bound_shade : upper bound of the shade stimulus - def 550")
+>> name_of_file : name of the file where the data will be saved - def data.csv")
+> example : ")
+>> model.py -r 940 955 450 550 "expriment_1"')
+
 
 ## Author
 This work is done by Louis L'Haridon, phd student.
