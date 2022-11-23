@@ -418,28 +418,51 @@ class Nociceptor:
         self,
         sensor,     #type: Sensor        
         ):
-        self.val = [float] * len(sensor.size)
+        self.val = [0.0] * sensor.size
+        self.speed_val = [0.0] * sensor.size
+        self.circular_val = [0.0] * sensor.size
         self.sensor = sensor  
-        self.data = [float] * len(sensor.size)  
-        self.prev_data = [float] * len(sensor.size)        
+        self.data = [0.0] * sensor.size
+        self.prev_data = [0.0] * sensor.size
 
     def compute_speed_impact(self):
         #A function that that takes data actual and previous value to compute
         #the value of the nociceptor as a speed
-        self.val = [0.0] * len(self.data)
         for i in range(len(self.data)):
-            self.val[i] = abs(self.data[i] - self.prev_data[i])
+            #compute dist and speed
+            dist = abs(self.data[i] - self.prev_data[i])
+            speed = dist/TIME_SLEEP
+            #meaning of actual and previous speed to smooth data
+            self.speed_val[i] = (speed + self.speed_val[i])/2
 
     def compute_circular_impact(self):
         #a function that takes actual and previous value to compute the circular speed
         #speed is computed for each sensor as the difference between the actual and previous value of its neighbours
-        self.val = [0.0] * len(self.data)
+        l_dist = [0.0] * len(self.data)
+        r_dist = [0.0] * len(self.data)
+        dist = [0.0] * len(self.data)
+        #right circular speed
         for i in range(len(self.data)):
             if(i == 0):
-                self.val[i] = abs(self.data[i] - self.prev_data[len(self.data)-1])
+                r_dist[i] = abs(self.data[i] - self.data[len(self.data)-1])  
+            elif (i == len(self.data)-1):
+                r_dist[i] = abs(self.data[i] - self.data[0])
             else:
-                self.val[i] = abs(self.data[i] - self.prev_data[i-1])
-        
+                r_dist[i] = abs(self.data[i] - self.data[i-1])
+        #left circular speed
+        for i in range(len(self.data)-1,0,-1):
+            if(i == len(self.data)-1):
+                l_dist[i] = abs(self.data[i] - self.data[0])  
+            elif (i == 0):
+                l_dist[i] = abs(self.data[i] - self.data[len(self.data)-1])
+            else:
+                l_dist[i] = abs(self.data[i] - self.data[i+1])
+        #circular speed
+        for i in range(len(self.data)):
+            #mean of right and left circular speed
+            dist[i] = (r_dist[i] + l_dist[i])/2
+            #compute distahce
+            self.circular_val[i] = (dist[i] + self.circular_val[i] )/ 2.0
 
     def update(self):
         self.prev_data = self.data[:]
