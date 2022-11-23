@@ -38,9 +38,10 @@ socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
 ## command infos 
 ``model.py`` has different options to run with a simulation mode, a debug mode, a manual mode and a run mode
 
-&emsp; ``usage : model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)``
+usage :
+- ``model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)``
 
-&emsp; options :
+options :
 - -r: run
 - -d: debug
 - -s: simulation
