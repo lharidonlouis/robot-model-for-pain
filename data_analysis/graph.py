@@ -108,15 +108,15 @@ plt.gca().set_xlim(left=0, right=max(df.time))
 # plt.title('Selected motivation over time')
 
 plt.subplot(grid[3, 0:])
-plt.fill_between(df.iter, df.mot_hunger, 0,
+plt.fill_between(df.time, df.mot_hunger, 0,
                  where = (df.reactive == True),
                  color = 'r',
                  alpha = 0.3)
-plt.fill_between(df.iter, df.mot_hunger, 0,
+plt.fill_between(df.time, df.mot_hunger, 0,
                  where = (df.mot_hunger > df.mot_cold),
                  color = 'g',
                  alpha = 0.3)
-plt.fill_between(df.iter, df.mot_cold, 0,
+plt.fill_between(df.time, df.mot_cold, 0,
                  where = (df.mot_cold > df.mot_hunger),
                  color = 'b',
                  alpha = 0.3)
