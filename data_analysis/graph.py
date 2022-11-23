@@ -20,14 +20,21 @@ filename1 =  str(sys.argv[1])+".csv"
 #filename1 = "/Users/lharidonlouis/Documents/Thesis/Work/pain_model/robot-model-for-pain/data_analysis/expe.csv"
 print(filename1)
 
-columns=["iter","time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right","reactive"]
+#columns=["iter","time","val_energy","val_temperature","def_energy","def_temperature","stim_food","stim_shade","stim_wall","mot_hunger","mot_cold","motor_left","motor_right","reactive"]
 
 df = pd.read_csv(
     filename1,
-    names= columns,
     delimiter=",",
-    skiprows=1
+    skiprows=0
 )
+list(df.columns)
+
+# df = pd.read_csv(
+#     filename1,
+#     name = columns,
+#     delimiter=",",
+#     skiprows=1
+# )
 
 #print(res.to_string())
 
@@ -101,15 +108,15 @@ plt.gca().set_xlim(left=0, right=max(df.time))
 # plt.title('Selected motivation over time')
 
 plt.subplot(grid[3, 0:])
-plt.fill_between(df.time, df.mot_hunger, 0,
+plt.fill_between(df.iter, df.mot_hunger, 0,
                  where = (df.reactive == True),
                  color = 'r',
                  alpha = 0.3)
-plt.fill_between(df.time, df.mot_hunger, 0,
+plt.fill_between(df.iter, df.mot_hunger, 0,
                  where = (df.mot_hunger > df.mot_cold),
                  color = 'g',
                  alpha = 0.3)
-plt.fill_between(df.time, df.mot_cold, 0,
+plt.fill_between(df.iter, df.mot_cold, 0,
                  where = (df.mot_cold > df.mot_hunger),
                  color = 'b',
                  alpha = 0.3)

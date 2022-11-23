@@ -464,6 +464,8 @@ class Nociceptor:
         self.data = self.sensor.get_norm_val()[:]
         self.compute_speed_impact()
         self.compute_circular_impact()
+        for i in range(len(self.data)):
+            self.val[i] = (self.speed_val[i] + self.circular_val[i])/2.0
 
 
 #The class `Stimulus` defines a stimulus
@@ -1271,7 +1273,13 @@ class Robot:
                 file.write("mot_" + m.get_name() + ",")
             file.write("motor_left" + ",")
             file.write("motor_right"+",")
-            file.write("reactive")
+            file.write("reactive"+",")
+            for i in range(len(self.nociceptor.speed_val)):
+                file.write("speed_" + str(i+1) + ",")
+            for i in range(len(self.nociceptor.circular_val)):
+                file.write("circ_" + str(i+1) + ",")
+            for i in range(len(self.nociceptor.val)):
+                file.write("noci_" + str(i+1) + ",")
             file.write("\n")
 
 
@@ -1305,7 +1313,13 @@ class Robot:
                 if b.is_excited():
                     if b.can_behave():
                         reflex = True
-            file.write(str(reflex))
+            file.write(str(reflex)+",")
+            for i in range(len(self.nociceptor.speed_val)):
+                file.write(str(self.nociceptor.speed_val[i])+",")
+            for i in range(len(self.nociceptor.circular_val)):
+                file.write(str(self.nociceptor.circular_val[i])+",")
+            for i in range(len(self.nociceptor.val)):
+                file.write(str(self.nociceptor.val[i])+",")
             file.write("\n")
         return iter+1        
 
@@ -1396,6 +1410,8 @@ class Robot:
         #update reactive stimulus
         for s in self.stimuli:
             s.update()
+        #nociceptor update
+        self.nociceptor.update()
         
         #select motivation
         selected_mot = self.WTA()
@@ -1570,6 +1586,10 @@ def display(
     print("-------------------STIMULI--------------------------")
     for s in robot.stimuli:
         print(s.name + " : ", "{0:0.2f}".format(mean(s.get_data())), " " , ["{0:0.2f}".format(i) for i in s.get_data()])
+    print("--------------------NOCICEPTOR----------------------")
+    print("speed      : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.speed_val])
+    print("circular   : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.circular_val])
+    print("nociceptor : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.val])
     print("-------------------MOTIVATIONS----------------------")
     for m in robot.motivations:
         print(m.name + " : " + "{0:0.2f}".format(m.get_intensity()))
