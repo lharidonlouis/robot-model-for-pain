@@ -422,8 +422,8 @@ class Nociceptor:
         self.speed_val = [0.0] * sensor.size
         self.circular_val = [0.0] * sensor.size
         self.sensor = sensor  
-        self.data = [0.0] * sensor.size
-        self.prev_data = [0.0] * sensor.size
+        self.data = self.sensor.get_norm_val()[:]
+        self.prev_data = self.sensor.get_norm_val()[:]
 
     def compute_speed_impact(self):
         #A function that that takes data actual and previous value to compute
