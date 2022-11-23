@@ -25,9 +25,15 @@ If you want to change the robot see ``Model.Motors.drive()`` and ``Model.ensors.
 We will use a custome serial port to be able to embodied server and model inside the robot
 To run the model, simply run the following command:
 ```
+//clean folder with
+rm louis/res/*
+//fake serial with
 socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
+//run the server with
 ./server &
-python model.py 
+//run the client with
+python louis/model.py -r lower_limit_food upper_limit_food lower_limit_shade upper_limit_shade "name_of_run"   
+-d can be used for debug mode (no motor activated)
 ```
 
 ## Author
