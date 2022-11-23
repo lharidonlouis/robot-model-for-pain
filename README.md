@@ -46,12 +46,14 @@ socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
 - -s: simulation
 - -m : manual
 - -h : help
+
 values :
-- lower_bound_food : lower bound of the food stimulus - def 940
-- upper_bound_food : upper bound of the food stimulus - def 955
-- lower_bound_shade : lower bound of the shade stimulus - def 450
-- tupper_bound_shade : upper bound of the shade stimulus - def 550
-- name_of_file : name of the file where the data will be saved - def data.csv
+- lower_bound_food : lower bound of the food stimulus - default : 940
+- upper_bound_food : upper bound of the food stimulus - default : 955
+- lower_bound_shade : lower bound of the shade stimulus - default : 450
+- tupper_bound_shade : upper bound of the shade stimulus - default : 550
+- name_of_file : name of the file where the data will be saved - default : data.csv
+
 example : 
 - model.py -r 940 955 450 550 "expriment_1"
 
