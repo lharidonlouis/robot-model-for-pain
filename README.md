@@ -37,8 +37,8 @@ socat -d -d pty,raw,echo=0,link=/dev/ttyS0 pty,raw,echo=0,link=/dev/ttyS1 &
 
 ## command infos 
 
-> usage : model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)
-> options :
+usage : model.py -[option] [lower_bound_food] [upper_bound_food] [lower_bound_shade] [upper_bound_shade] [name_of_file (without extension)
+options :
 >> -r: run
 >> -d: debug
 >> -s: simulation
