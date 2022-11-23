@@ -31,7 +31,7 @@ df = pd.read_csv(
 
 #print(res.to_string())
 
-df.time = df.time.div(10)
+df.time = df.time.div(200)
 
 #for each line in df, write the name of the max row between mot_hunger and mot_cold
 df['mot'] = df[['mot_hunger', 'mot_cold']].idxmax(axis=1)
