@@ -996,6 +996,9 @@ class Robot:
         self.reactive_systems = [Reactive] * 0
         #motivation
         self.motivations = [Motivation] * 0
+        #nociceptor
+        self.nociceptor = Nociceptor
+
         #robot serial com
         if not simulation:
             self.com = cstm_serial.SerialPort(port, baudrate)
@@ -1205,6 +1208,13 @@ class Robot:
         """
         return self.leds[2]
 
+    def get_nociceptor(self):
+        #type : () -> Nociceptor
+        """
+        The function returns the nociceptor.
+        """
+        return self.nociceptor
+
     def set_led(
         self, 
         led,    #type: Led
@@ -1231,6 +1241,15 @@ class Robot:
         @param intensity The intensity to set.
         """
         led.set_led_intensity(color, intensity)
+
+    def set_nociceptor(        
+        self,
+        sensor,     #type: Sensor        
+        ):
+        """
+        The function defines a nociceptor
+        """
+        self.nociceptor = Nociceptor(sensor)
 
     def write_header_data(
             self, 
@@ -1378,6 +1397,7 @@ class Robot:
         #update reactive stimulus
         for s in self.stimuli:
             s.update()
+        
         #select motivation
         selected_mot = self.WTA()
         print("selected_mot : " + selected_mot.get_name())
@@ -1519,6 +1539,8 @@ def define_khepera(simulation = False):
     khepera.add_behavioral_system(food)
     khepera.add_behavioral_system(shade)
     khepera.add_reactive_system(withdraw)
+    #set nociceptor
+    khepera.set_nociceptor(khepera.get_sensor_by_name("prox"))
 
     return khepera
 
