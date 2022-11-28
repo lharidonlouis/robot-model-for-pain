@@ -279,9 +279,9 @@ class Variable:
         The error is computed as the difference between the ideal value and the current value with a margin of tolerance. 
         """
         if(self.value < (self.ideal - self.margin)):
-            self.error = abs((self.ideal - self.margin) - self.value)
+            self.error = abs((self.ideal - self.margin) - self.value)/(self.ideal - self.margin)
         elif(self.value > (self.ideal + self.margin)):
-            self.error = abs((self.ideal + self.margin) - self.value)
+            self.error = abs((self.ideal + self.margin) - self.value)/(self.ideal - self.margin)
         else:
             self.error = 0.0
 
