@@ -279,9 +279,9 @@ class Variable:
         The error is computed as the difference between the ideal value and the current value with a margin of tolerance. 
         """
         if(self.value < (self.ideal - self.margin)):
-            self.error = abs((self.ideal - self.margin) - self.value)/(self.ideal - self.margin)
+            self.error = abs((self.ideal - self.margin) - self.value) / (self.ideal - self.margin)
         elif(self.value > (self.ideal + self.margin)):
-            self.error = abs((self.ideal + self.margin) - self.value)/(self.ideal - self.margin)
+            self.error = abs((1.0 - self.ideal - self.margin) -self.value)/ (1.0 - self.ideal - self.margin)
         else:
             self.error = 0.0
 
@@ -1504,8 +1504,8 @@ def define_khepera(simulation = False):
     """
     khepera = Robot("khepera-iv", '/dev/ttyS1', 115200, simulation)
     #add variables
-    khepera.add_variable(Variable("energy", 0.5, 0.95, 0.05, True, 0.01))
-    khepera.add_variable(Variable("temperature", 0.5, 0.05, 0.05, False, 0.01))
+    khepera.add_variable(Variable("energy", 0.5, 1.0, 0.05, True, 0.01))
+    khepera.add_variable(Variable("temperature", 0.5, 0.0, 0.05, False, 0.01))
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS, khepera))
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
