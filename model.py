@@ -962,6 +962,16 @@ class Motivation:
         self.drive = drive
 
 
+# The class `Emotion` defines a neuron and its attributes
+class Emotion:
+    def __init__(
+            self,
+            name           #type: str
+        ):
+        self.name = name
+        self.val = 0.0
+
+
 # The class `robot` defines the robot and its attributes
 class Robot:
     def __init__(
@@ -996,6 +1006,10 @@ class Robot:
         self.motivations = [Motivation] * 0
         #nociceptor
         self.nociceptor = Nociceptor
+        
+        #emotions
+        self.arousal_val = 0.0
+        self.emotions = Emotion
 
         #robot serial com
         if not simulation:
@@ -1395,7 +1409,44 @@ class Robot:
             self.get_right_led().set_led("white")
             self.get_back_led().set_led("white")
             self.update_leds(simulation)
-            
+
+    def arousal(self):
+        """
+        The function arousal computes arousal of the robot based on nociceptor as stimuli
+        """
+        #compute arousel impact on motors
+        arousel_l = mean(self.nociceptor.val[0:(len(self.nociceptor.val)//2)])
+        arousel_r = mean(self.nociceptor.val[(len(self.nociceptor.val)//2):])
+        self.arousal_val = (arousel_l + arousel_r)/2.0
+        #impact on motors
+        self.get_motors().set_left(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
+        self.get_motors().set_right(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
+        
+    def cognition(self):
+        """
+        The function cognition impact perception of obstacle stimuli based on arousal and actual perception
+        """
+        for s in self.sensors:
+            s.norm_val = s.norm_val #+ s.norm_val * arousel
+            #s.raw_val = s.raw_val + int(int(s.raw_val) * float(arousel))
+        
+    def emotion(self, name):
+        """
+        The function emotion computes emotion of the robot based on arousal
+        """
+        self.emotion = Emotion(name)
+        alpha = 0.1
+        beta = 0.2
+        error = 0.0
+        for v in self.variables:
+            error = error + v.get_error()
+        error = error / len(self.variables)
+        self.emotions.val = ((1-alpha-beta) * mean(self.nociceptor.val)) + (beta *  error) + (alpha * mean(self.nociceptor.val))
+
+    def SS_TFT(self):
+        self.arousal()
+        self.cognition()
+        self.emotions("pain")        
 
     def update(self, debug = False, simulation = False):
         """
@@ -1410,17 +1461,18 @@ class Robot:
         #update leds for variables
         self.get_left_led().set_led_intensity("green", self.variables[0].get_value())
         self.get_right_led().set_led_intensity("orange", self.variables[1].get_value())
+        #update reactive stimulus
+        for s in self.stimuli:
+            s.update()        
         #update motivations
         for m in self.motivations:
             m.update()
-        #update reactive stimulus
-        for s in self.stimuli:
-            s.update()
         #nociceptor update
         self.nociceptor.update()
         
         #select motivation
         selected_mot = self.WTA()
+        
         print("selected_mot : " + selected_mot.get_name())
         print("selected drive " + str(selected_mot.get_drive().get_name()))
         print ("------")
@@ -1461,6 +1513,8 @@ class Robot:
                             else:                                
                                 self.get_back_led().set_led("orange")
                             break
+        #Schachter-Singer Two factor theory
+        self.SS_TFT()
         #motor control
         if not debug:
             self.motors.update(simulation)
