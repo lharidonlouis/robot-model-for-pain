@@ -40,15 +40,16 @@ import cstm_serial
 import random
 import time
 import sys
+import os
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
 TIME_SLEEP = 0.05   #Time between each simulation step
 N_US_SENSORS = 5    #Number of UltraSonic Sensors.
 N_IR_SENSORS = 12   #Number of IR Sensors.
-SPEED_ROBOT = 400   #Constant for speed. 1200 MAX
-GAIN = 0.001        #constant for gain when consume resource
-LOOSE = 0.0001      #constant for loose when behave
+SPEED_ROBOT = 500   #Constant for speed. 1200 MAX
+GAIN = 0.005        #constant for gain when consume resource
+LOOSE = 0.00025      #constant for loose when behave
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -161,12 +162,12 @@ class Motors:
         self.drive(simulation)
 
     def turn_right(self):
-        self.left = -0.5
-        self.right = 0.5
+        self.left = -0.25
+        self.right = 0.75
         
     def turn_left(self):
-        self.left = 0.5
-        self.right = -0.5
+        self.left = 0.75
+        self.right = -0.25
 
     def backward(self):
         self.left = -0.5
@@ -281,7 +282,7 @@ class Variable:
         if(self.value < (self.ideal - self.margin)):
             self.error = abs((self.ideal - self.margin) - self.value) / (self.ideal - self.margin)
         elif(self.value > (self.ideal + self.margin)):
-            self.error = abs((1.0 - self.ideal - self.margin) -self.value)/ (1.0 - self.ideal - self.margin)
+            self.error = abs((self.value - (self.ideal + self.margin)) / (1.0 - self.ideal + self.margin) )
         else:
             self.error = 0.0
 
@@ -458,10 +459,16 @@ class Nociceptor:
             dist[i] = (r_dist[i] + l_dist[i])/2
             #compute distahce
             self.circular_val[i] = (dist[i] + self.circular_val[i] )/ 2.0
+    
+    def get_val(self):
+        return self.val[:]
 
     def update(self):
         self.prev_data = self.data[:]
         self.data = self.sensor.get_norm_val()[:]
+        self.circular_val = self.circular_val[0:len(self.data)]
+        self.speed_val = self.speed_val[0:len(self.data)]
+        self.val = self.val[0:len(self.data)]
         self.compute_speed_impact()
         self.compute_circular_impact()
         for i in range(len(self.data)):
@@ -858,11 +865,13 @@ class Led:
         elif color == "blue":
             self.set_rvb(0,0,63)
         elif color == "yellow":
-            self.set_rvb(63,63,0)
+            self.set_rvb(31,31,0)
         elif color == "purple":
             self.set_rvb(63,0,63)
         elif color == "cyan":
             self.set_rvb(0,63,63)
+        elif color == "magenta":
+            self.set_rvb(63,0,63)
         elif color == "white":
             self.set_rvb(63,63,63)
         elif color == "rose":
@@ -972,6 +981,44 @@ class Emotion:
         self.val = 0.0
 
 
+# The class `gland` defines a gland and its attributes
+# a gland is a neuron that computes the release of a hormone
+class Gland:
+    def __init__(
+            self,
+            name,             #type: str
+            nociceptor        #type: Nociceptor
+        ):
+        self.name = name
+        self.nociceptor = nociceptor
+        self.release_rate = 0.0
+        self.alpha = 0.025
+
+    def set_nociceptor(self, nociceptor):
+        self.nociceptor = nociceptor
+
+    def update(self):
+        self.release_rate = mean(self.nociceptor.get_val()[:]) * self.alpha
+
+
+#The class `Hormone` defines a hormone and its attributes
+class Hormone:
+    def __init__(
+            self,
+            name,           #type: str
+            gland           #type: Gland
+        ):
+        self.name = name
+        self.concentration = 0.0
+        self.decay_rate = 0.0
+        self.gland = gland
+
+    def set_decay_rate(self, val):
+        self.decay_rate = val
+
+    def update(self):
+        self.concentration = max(0,min(1.0, self.concentration + self.gland.release_rate - self.decay_rate))
+
 # The class `robot` defines the robot and its attributes
 class Robot:
     def __init__(
@@ -1006,7 +1053,11 @@ class Robot:
         self.motivations = [Motivation] * 0
         #nociceptor
         self.nociceptor = Nociceptor
-        
+        #gland
+        self.paingland = Gland("pain", self.nociceptor)
+        #hormones
+        self.pain_hormone = Hormone("pain", self.paingland)
+        self.pain_hormone.set_decay_rate(0.05)
         #emotions
         self.arousal_val = 0.0
         self.emotions = Emotion
@@ -1263,6 +1314,15 @@ class Robot:
         """
         self.nociceptor = Nociceptor(sensor)
 
+    def set_gland(
+        self
+    ):
+        """
+        The function sets nociceptor to gland
+        """
+        self.paingland.set_nociceptor(self.nociceptor)
+        
+
     def write_header_data(
             self, 
             filename    #type: str
@@ -1292,11 +1352,14 @@ class Robot:
                 for i in range(len(s.get_norm_val())):
                     file.write("sensor_" + s.get_name() + "_" + str(i) + ",")
             for i in range(len(self.nociceptor.speed_val)):
-                file.write("speed_" + str(i+1) + ",")
+                file.write("speed_" + str(i) + ",")
             for i in range(len(self.nociceptor.circular_val)):
-                file.write("circ_" + str(i+1) + ",")
+                file.write("circ_" + str(i) + ",")
             for i in range(len(self.nociceptor.val)):
-                file.write("noci_" + str(i+1) + ",")
+                file.write("noci_" + str(1) + ",")
+            file.write("noci_mean" + ",")
+            file.write("gland_release_rate" + ",")
+            file.write("hormonal_concentration" + ",")
             file.write("\n")
 
 
@@ -1340,6 +1403,9 @@ class Robot:
                 file.write(str(self.nociceptor.circular_val[i])+",")
             for i in range(len(self.nociceptor.val)):
                 file.write(str(self.nociceptor.val[i])+",")
+            file.write(str(mean(self.nociceptor.val))+",")
+            file.write(str(self.paingland.release_rate)+",")
+            file.write(str(self.pain_hormone.concentration)+",")
             file.write("\n")
         return iter+1        
 
@@ -1419,17 +1485,9 @@ class Robot:
         arousel_r = mean(self.nociceptor.val[(len(self.nociceptor.val)//2):])
         self.arousal_val = (arousel_l + arousel_r)/2.0
         #impact on motors
-        self.get_motors().set_left(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
-        self.get_motors().set_right(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
-        
-    def cognition(self):
-        """
-        The function cognition impact perception of obstacle stimuli based on arousal and actual perception
-        """
-        for s in self.sensors:
-            s.norm_val = s.norm_val #+ s.norm_val * arousel
-            #s.raw_val = s.raw_val + int(int(s.raw_val) * float(arousel))
-        
+        #self.get_motors().set_left(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
+        #self.get_motors().set_right(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
+                
     def emotion(self, name):
         """
         The function emotion computes emotion of the robot based on arousal
@@ -1443,10 +1501,6 @@ class Robot:
         error = error / len(self.variables)
         self.emotions.val = ((1-alpha-beta) * mean(self.nociceptor.val)) + (beta *  error) + (alpha * mean(self.nociceptor.val))
 
-    def SS_TFT(self):
-        self.arousal()
-        self.cognition()
-        self.emotions("pain")        
 
     def update(self, debug = False, simulation = False):
         """
@@ -1459,8 +1513,8 @@ class Robot:
         for v in self.variables:
             v.update()
         #update leds for variables
-        self.get_left_led().set_led_intensity("green", self.variables[0].get_value())
-        self.get_right_led().set_led_intensity("orange", self.variables[1].get_value())
+        self.get_left_led().set_led_intensity("blue", self.variables[1].get_value())
+        self.get_right_led().set_led_intensity("red", self.variables[0].get_value())
         #update reactive stimulus
         for s in self.stimuli:
             s.update()        
@@ -1469,7 +1523,11 @@ class Robot:
             m.update()
         #nociceptor update
         self.nociceptor.update()
-        
+        #gland and hormone update
+        self.paingland.update()
+        self.pain_hormone.update()
+
+
         #select motivation
         selected_mot = self.WTA()
         
@@ -1488,7 +1546,7 @@ class Robot:
                     print("behavior selected: " + b.get_name())
                     print("---")
                     b.behave()
-                    self.get_back_led().set_led("red")
+                    self.get_back_led().set_led("white")
                     reflex = True
         #else select behavior
         #first we get througt all the behavioral systems
@@ -1507,19 +1565,19 @@ class Robot:
                             elif b.get_name() == "seek-shade":
                                 self.get_back_led().set_led("cyan")
                             elif b.get_name() == "eat":
-                                self.get_back_led().set_led("purple")
+                                self.get_back_led().set_led("red")
                             elif b.get_name() == "seek-food":
-                                self.get_back_led().set_led("rose")
+                                self.get_back_led().set_led("magenta")
                             else:                                
-                                self.get_back_led().set_led("orange")
+                                self.get_back_led().set_led("green")
                             break
-        #Schachter-Singer Two factor theory
-        self.SS_TFT()
         #motor control
         if not debug:
             self.motors.update(simulation)
+
         #led update
         self.update_leds(simulation)
+
 
     def decode(self, data):
         """
@@ -1598,10 +1656,10 @@ def define_khepera(simulation = False):
     food.add_behavior(seek_food)
     #cool down and seek shade behavior
     shade = BehavioralSystem("shade", dr_decrease_temperature)
-    cool_down = Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.3)
+    cool_down = Consumatory("cool-down", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.1)
     cool_down.set_main_effect(e_decrease_temperature)
     cool_down.add_secondary_effect(e_decrease_energy)
-    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.15)
+    seek_shade = Appettitive("seek-shade", khepera.get_motors(), khepera.get_stimulus_by_name("shade"), 0.1)
     seek_shade.add_secondary_effect(e_decrease_energy)
     seek_shade.add_secondary_effect(e_increase_temperature)
     shade.add_behavior(cool_down)
@@ -1616,6 +1674,8 @@ def define_khepera(simulation = False):
     khepera.add_reactive_system(withdraw)
     #set nociceptor
     khepera.set_nociceptor(khepera.get_sensor_by_name("prox"))
+    #set nociceptor to gland
+    khepera.set_gland()
 
     return khepera
 
@@ -1629,6 +1689,7 @@ def display(
     
     @param robot the robot object
     """
+    os.system('clear')
     print("-------------------INFO-----------------------------")
     print("time : " + "{0:0.2f}".format(float(t/1000)) + "s")
     print("iter : " + str(i))
@@ -1650,6 +1711,10 @@ def display(
     print("speed      : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.speed_val])
     print("circular   : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.circular_val])
     print("nociceptor : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.val])
+    print("---------------------PAIN---------------------------")
+    print("nociceptor mean      : ", "{0:0.2f}".format(mean(robot.nociceptor.val[:])))
+    print("gland release rate   : ", "{0:0.2f}".format(robot.paingland.release_rate))
+    print("hormone concetration : ", "{0:0.2f}".format(robot.pain_hormone.concentration))
     print("-------------------MOTIVATIONS----------------------")
     for m in robot.motivations:
         print(m.name + " : " + "{0:0.2f}".format(m.get_intensity()))
@@ -1696,14 +1761,13 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
     else:
         filename =  sys.argv[6] + ".csv"  if len(sys.argv) > 6 else "data_analysis/data.csv"
 
-    khepera.write_header_data(filename)
     #manual control
     if sys.argv[1] == "-m":
         user_input = 'e'
         while(khepera.is_alive()):
             try:
                 print("z,q,s,d to controll - a to stop : ")
-                #user_input = raw_input()
+                user_input = raw_input()
                 if user_input == 'a':
                     khepera.motors.emergency_stop()
                     break
@@ -1712,14 +1776,14 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
                 elif user_input == 'z':
                     khepera.motors.forward()
                 elif user_input == 'q':
-                    khepera.motors.turn_left()
+                    khepera.motors.turn_right()
                 elif user_input == 's':
                     khepera.motors.backward()
                 elif  user_input == 'd':
-                    khepera.motors.turn_right()
+                    khepera.motors.turn_left()
                 else : 
                     pass
-                khepera.motors.update()
+                khepera.motors.update(False)
                 time.sleep(TIME_SLEEP)
             except KeyboardInterrupt:
                 khepera.motors.emergency_stop()
@@ -1729,7 +1793,7 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
     elif sys.argv[1] == "-r" or sys.argv[1] == "-s" or sys.argv[1] == "-d":
         #if not simulation wait 3s to unplug robot
         if sys.argv[1] == "-r":
-            time.sleep(3)
+            time.sleep(1)
         #get start time
         ts = float(time.time() * 1000)
         iter = 0
@@ -1741,6 +1805,8 @@ elif ((sys.argv[1] == "-r") or (sys.argv[1] == "-s") or (sys.argv[1] == '-d') or
                 khepera.update(debug, simulation)
                 #compute time and iteration
                 time_since_start = float(time.time() * 1000) - ts
+                if iter == 0 :
+                    khepera.write_header_data(filename)
                 iter = khepera.save(filename, time_since_start, iter)
                 #display
                 display(khepera, iter, time_since_start)
