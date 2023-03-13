@@ -41,6 +41,7 @@ import random
 import time
 import sys
 import os
+import math
 
 # GLOBAL PARAMETERS
 # ----------------------------------------------------------------------------------------------------------------------
@@ -48,8 +49,8 @@ TIME_SLEEP = 0.05   #Time between each simulation step
 N_US_SENSORS = 5    #Number of UltraSonic Sensors.
 N_IR_SENSORS = 12   #Number of IR Sensors.
 SPEED_ROBOT = 500   #Constant for speed. 1200 MAX
-GAIN = 0.005        #constant for gain when consume resource
-LOOSE = 0.00025      #constant for loose when behave
+GAIN = 0.05        #constant for gain when consume resource
+LOOS = 0.0005      #constant for loose when behave
 # ----------------------------------------------------------------------------------------------------------------------
 
 
@@ -105,7 +106,11 @@ class Motors:
     def __init__(self, robot):
         self.left = 0.0 # speed of left motor (from -1.0 to 1.0)
         self.right = 0.0  # speed of right motor (from -1.0 to 1.0)
+        self.speed = SPEED_ROBOT
         self.robot = robot
+
+    def set_speed(self, speed):
+        self.speed = speed
 
     def get_left_speed(self):
         """
@@ -186,11 +191,11 @@ class Motors:
         The function takes a left and right speed as arguments and returns a new instance of the class
         """
         if(self.left != 0.0):
-            left = self.left * SPEED_ROBOT
+            left = self.left * self.speed
         else :
             left = 0
         if(self.right != 0.0):
-            right = self.right * SPEED_ROBOT
+            right = self.right * self.speed
         else :
             right = 0
         if not simulation:
@@ -207,11 +212,21 @@ class Motors:
         @param right : float the speed of the right motor from -1.0 to 1.0
         """
         if(left != 0.0):
-            left =  left * SPEED_ROBOT
+            left =  left * self.speed
         if(right != 0.0):
-            right = right * SPEED_ROBOT
+            right = right * self.speed
         self.robot.send_data('D,' + str(left) + ',' + str(right))
 
+    def rage(
+        self, 
+        bonus_malus # type: float
+    ):
+        if self.left > 0 :
+            self.left = self.left + self.left*bonus_malus
+        else:
+            self.left = self.left - self.left*bonus_malus 
+        if self.right > 0 : 
+            self.right = self.right + self.ri
 
     def update(self, simulation = False):
         """
@@ -459,7 +474,31 @@ class Nociceptor:
             dist[i] = (r_dist[i] + l_dist[i])/2
             #compute distahce
             self.circular_val[i] = (dist[i] + self.circular_val[i] )/ 2.0
-    
+
+    def pain_irradiation(self):
+        #
+        #    We induce damage irradiation using a Gaussian that propagates intensity to each nociceptor s neighbors
+        #    1) Generate a 2d of size len(self.val) len(self.val)        
+        #    2) for i in range(0, len(self.val)):
+        #        a) array[i]=self.val
+        #        b) take array[i][i] as center of gaussian and then radiates to neighbors
+        #    3) for i in range(0,len(self.val))
+        #        a) self.val[i] = 0
+        #        b) for j in range(0,len(self.val))
+        #            i) self.val[i] += array[i][j]
+        #        c) self.val[i] = self.val[i]/len(self.val)
+        #
+        array = [0.0] * len(self.val)
+        for i in range(0, len(self.val)):
+            array[i] = self.val[:]
+            for j in range(0, len(self.val)):
+                array[i][j] = array[i][j] * math.exp(-((i-j)**2)/2.0)
+        for i in range(0,len(self.val)):
+            self.val[i] = 0
+            for j in range(0,len(self.val)):
+                self.val[i] += array[i][j]
+            self.val[i] = self.val[i]/len(self.val)
+
     def get_val(self):
         return self.val[:]
 
@@ -473,6 +512,7 @@ class Nociceptor:
         self.compute_circular_impact()
         for i in range(len(self.data)):
             self.val[i] = (self.speed_val[i] + self.circular_val[i])/2.0
+        self.pain_irradiation()
 
 
 #The class `Stimulus` defines a stimulus
@@ -505,6 +545,9 @@ class Stimulus:
         """
         return self.data
 
+    def incentive(self, salience):
+        for i in range(self.size):
+            self.data[i] = max(0.0, min(1.0, self.data[i] + self.data[i]*salience))
     def process_stimulus(self):
         """
         This function processes the stimulus.
@@ -903,19 +946,26 @@ class Motivation:
             self, 
             name,           #type: str
             controlled_var, #type: Variable
-            stimulus        #type: Stimulus
+            stimulus,        #type: Stimulus
         ):
         self.name = name
         self.intensity = 0.0 # intensity of the motivation
         self.controlled_var = controlled_var # variable controlled by the motivation
         self.drive = Drive("increase-" + controlled_var.get_name(), True, controlled_var) #by default, increase associated variable
         self.stimulus = stimulus
+        self.signal_grabber = -1
 
     def compute(self):
         """
         The function computes the motivation to perform the action associated with the variable.
         """
-        self.intensity = self.controlled_var.get_error() + (self.controlled_var.get_error() * mean(self.stimulus.get_data()))
+        if self.signal_grabber == -1:
+            self.intensity = self.controlled_var.get_error() * (1 + mean(self.stimulus.get_data()))
+        else : 
+            t = sorted(self.stimulus.get_data()[:], reverse=True)
+            self.intensity = mean(t[:self.signal_grabber])
+
+
 
     def get_drive(self):
         """
@@ -932,6 +982,12 @@ class Motivation:
         @return The value of the instance variable val.
         """
         return self.intensity
+    
+    def set_size_attention_grabber(
+            self, 
+            size #type: int
+        ):
+        self.signal_grabber = size
 
     def get_name(self):
         """
@@ -971,53 +1027,80 @@ class Motivation:
         self.drive = drive
 
 
-# The class `Emotion` defines a neuron and its attributes
-class Emotion:
+class ReactiveMot(Motivation):
     def __init__(
-            self,
-            name           #type: str
+            self, 
+            name,            #type: str
+            controlled_var,  #type: Variable
+            stimulus,        #type: Stimulus
+            ReacStim         #type: Nociceptor
         ):
         self.name = name
-        self.val = 0.0
+        self.intensity = 0.0 # intensity of the motivation
+        self.controlled_var = controlled_var # variable controlled by the motivation
+        self.drive = Drive("increase-" + controlled_var.get_name(), True, controlled_var) #by default, increase associated variable
+        self.stimulus = stimulus
+        self.signal_grabber = -1
+        self.ReacStim = ReacStim
+        self.intensity = 0.0 # intensity of the motivation
+        self.signal_grabber = -1
 
+    def set_ReacStim(self, ReacStim):
+        self.ReacStim = ReacStim
 
-# The class `gland` defines a gland and its attributes
-# a gland is a neuron that computes the release of a hormone
-class Gland:
-    def __init__(
-            self,
-            name,             #type: str
-            nociceptor        #type: Nociceptor
-        ):
-        self.name = name
-        self.nociceptor = nociceptor
-        self.release_rate = 0.0
-        self.alpha = 0.025
+    def compute(self):
+        error = self.ReacStim.get_val()
+        for e in error:
+            #e = 1.0 - e
+            pass
+        if self.signal_grabber == -1:
+            self.intensity = (mean(error) + mean(self.stimulus.get_data()))
+            #self.intensity = math.log(10*mean(self.stimulus.get_data()+1)) * (1+ mean(error))
+        else : 
+            t = sorted(self.stimulus.get_data()[:], reverse=True)
+            self.intensity = (mean(error) + mean(t[:self.signal_grabber]))
+            #self.intensity = math.log(10*mean(t[:self.signal_grabber]) + 1) * (1 + (mean(error)))
 
-    def set_nociceptor(self, nociceptor):
-        self.nociceptor = nociceptor
+        
+        if self.intensity >= 1.0:
+            self.intensity = 1.0
 
-    def update(self):
-        self.release_rate = mean(self.nociceptor.get_val()[:]) * self.alpha
+        
 
 
 #The class `Hormone` defines a hormone and its attributes
 class Hormone:
     def __init__(
             self,
-            name,           #type: str
-            gland           #type: Gland
+            name,                #type: str
+            nociceptor           #type: Nociceptor
         ):
         self.name = name
         self.concentration = 0.0
-        self.decay_rate = 0.0
-        self.gland = gland
+        self.alpha = 0.0
+        self.decay_rate = 0.01
+        self.release_rate = 0.0
+        self.nociceptor = nociceptor
+
+    def set_nociceptor(self, nociceptor):
+        self.nociceptor = nociceptor
 
     def set_decay_rate(self, val):
         self.decay_rate = val
 
+    def set_alpha(self, val):
+        self.alpha = val
+
+    def update_gland(self):
+        self.release_rate = self.alpha * mean(self.nociceptor.get_val()) 
+
     def update(self):
-        self.concentration = max(0,min(1.0, self.concentration + self.gland.release_rate - self.decay_rate))
+        self.update_gland()
+        print(self.release_rate)
+        print(self.decay_rate)
+        print(self.concentration + self.release_rate - self.decay_rate)
+        self.concentration = max(0,min(1.0, self.concentration + self.release_rate - self.decay_rate))
+
 
 # The class `robot` defines the robot and its attributes
 class Robot:
@@ -1048,19 +1131,16 @@ class Robot:
         self.stimuli = [Stimulus] * 0
         #behaviors
         self.behavior_systems = [BehavioralSystem] * 0
-        self.reactive_systems = [Reactive] * 0
         #motivation
         self.motivations = [Motivation] * 0
         #nociceptor
         self.nociceptor = Nociceptor
-        #gland
-        self.paingland = Gland("pain", self.nociceptor)
         #hormones
-        self.pain_hormone = Hormone("pain", self.paingland)
-        self.pain_hormone.set_decay_rate(0.05)
-        #emotions
-        self.arousal_val = 0.0
-        self.emotions = Emotion
+        self.cortisol_hormone = Hormone("cortisol", self.nociceptor)
+        #internalstate
+        self.wellbeing_val = 0.0
+        #pain
+        self.pain = 0.0
 
         #robot serial com
         if not simulation:
@@ -1095,17 +1175,6 @@ class Robot:
         @param behavior The behavior to add.
         """
         self.behavior_systems.append(behaviorsystem)
-    
-    def add_reactive_system(
-            self, 
-            reactive_bhv    #type: Reactive
-        ):
-        """
-        The function takes a behavior as argument and adds it to the list of behaviors.
-        @param behavior The behavior to add.
-        """
-        self.reactive_systems.append(reactive_bhv)
-
 
     def add_motivation(
             self, 
@@ -1140,6 +1209,12 @@ class Robot:
         """
         return self.sensors
 
+    def get_cortisol_hormone(self):
+        """
+        The function returns the list of hormones.
+        """
+        return self.cortisol_hormone
+
     def get_stimuli(self):
         """
         The function returns the list of stimuli.
@@ -1151,13 +1226,6 @@ class Robot:
         The function returns the list of behaviors.
         """
         return self.behavior_systems
-
-    def get_reactive_systems(self):
-        """
-        The function returns the list of behaviors.
-        """
-        return self.reactive_systems
-
 
     def get_motivations(self):
         """
@@ -1219,19 +1287,6 @@ class Robot:
         @param name The name of the behavior.
         """
         for bhv_s in self.behavior_systems:
-            if bhv_s.get_name() == name:
-                return bhv_s
-        return None
-
-    def get_reactive_systems_by_name(
-            self, 
-            name    #type: str
-        ):
-        """
-        The function takes a behavior name as argument and returns the behavior.
-        @param name The name of the behavior.
-        """
-        for bhv_s in self.reactive_systems:
             if bhv_s.get_name() == name:
                 return bhv_s
         return None
@@ -1314,15 +1369,6 @@ class Robot:
         """
         self.nociceptor = Nociceptor(sensor)
 
-    def set_gland(
-        self
-    ):
-        """
-        The function sets nociceptor to gland
-        """
-        self.paingland.set_nociceptor(self.nociceptor)
-        
-
     def write_header_data(
             self, 
             filename    #type: str
@@ -1347,7 +1393,6 @@ class Robot:
                 file.write("mot_" + m.get_name() + ",")
             file.write("motor_left" + ",")
             file.write("motor_right"+",")
-            file.write("reactive"+",")
             for s in self.sensors:
                 for i in range(len(s.get_norm_val())):
                     file.write("sensor_" + s.get_name() + "_" + str(i) + ",")
@@ -1356,10 +1401,12 @@ class Robot:
             for i in range(len(self.nociceptor.circular_val)):
                 file.write("circ_" + str(i) + ",")
             for i in range(len(self.nociceptor.val)):
-                file.write("noci_" + str(1) + ",")
+                file.write("noci_" + str(i) + ",")
             file.write("noci_mean" + ",")
             file.write("gland_release_rate" + ",")
             file.write("hormonal_concentration" + ",")
+            file.write("wellbeing" + ",")
+            file.write("pain")
             file.write("\n")
 
 
@@ -1387,13 +1434,6 @@ class Robot:
                 file.write(str(m.get_intensity()) + ",")
             file.write(str(self.motors.get_left_speed()) + ",")
             file.write(str(self.motors.get_right_speed())+",")
-            reflex = False
-            for b in self.reactive_systems:
-                b.is_excited()
-                if b.is_excited():
-                    if b.can_behave():
-                        reflex = True
-            file.write(str(reflex)+",")
             for s in self.sensors:
                 for i in range(len(s.get_norm_val())):
                     file.write(str(s.get_norm_val()[i]) + ",")
@@ -1404,8 +1444,10 @@ class Robot:
             for i in range(len(self.nociceptor.val)):
                 file.write(str(self.nociceptor.val[i])+",")
             file.write(str(mean(self.nociceptor.val))+",")
-            file.write(str(self.paingland.release_rate)+",")
-            file.write(str(self.pain_hormone.concentration)+",")
+            file.write(str(self.cortisol_hormone.release_rate)+",")
+            file.write(str(self.cortisol_hormone.concentration)+",")
+            file.write(str(self.wellbeing_val)+",")
+            file.write(str(self.pain))
             file.write("\n")
         return iter+1        
 
@@ -1476,30 +1518,14 @@ class Robot:
             self.get_back_led().set_led("white")
             self.update_leds(simulation)
 
-    def arousal(self):
-        """
-        The function arousal computes arousal of the robot based on nociceptor as stimuli
-        """
-        #compute arousel impact on motors
-        arousel_l = mean(self.nociceptor.val[0:(len(self.nociceptor.val)//2)])
-        arousel_r = mean(self.nociceptor.val[(len(self.nociceptor.val)//2):])
-        self.arousal_val = (arousel_l + arousel_r)/2.0
-        #impact on motors
-        #self.get_motors().set_left(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
-        #self.get_motors().set_right(self.get_motors().get_left_speed()  +  self.get_motors().get_left_speed() * arousel_l)
-                
-    def emotion(self, name):
-        """
-        The function emotion computes emotion of the robot based on arousal
-        """
-        self.emotion = Emotion(name)
-        alpha = 0.1
-        beta = 0.2
-        error = 0.0
+    def wellbeing(self):
+        sum = 0.0
         for v in self.variables:
-            error = error + v.get_error()
-        error = error / len(self.variables)
-        self.emotions.val = ((1-alpha-beta) * mean(self.nociceptor.val)) + (beta *  error) + (alpha * mean(self.nociceptor.val))
+            sum = sum + v.get_error()
+        self.wellbeing_val = 1.0 - sum/len(self.variables)
+
+    def update_pain(self):
+        self.pain = max(0.0,min(1.0, mean(self.nociceptor.val[:]) * (1 + 0.2*(1.0-self.wellbeing_val) + self.cortisol_hormone.concentration)))
 
 
     def update(self, debug = False, simulation = False):
@@ -1524,8 +1550,11 @@ class Robot:
         #nociceptor update
         self.nociceptor.update()
         #gland and hormone update
-        self.paingland.update()
-        self.pain_hormone.update()
+        self.cortisol_hormone.update()
+        #Internal state update
+        self.wellbeing()
+        #pain
+        self.update_pain()        
 
 
         #select motivation
@@ -1535,42 +1564,37 @@ class Robot:
         print("selected drive " + str(selected_mot.get_drive().get_name()))
         print ("------")
         #select behavior
-        #if there is a reactive system activated behave
-        reflex = False
-        for b in self.reactive_systems:
-            print(b.get_name(), " : ", mean(b.associated_stimulus.data))
-            b.is_excited()
-            if b.is_excited():
-                if b.can_behave():
-                    print("REFLEX")
-                    print("behavior selected: " + b.get_name())
-                    print("---")
-                    b.behave()
-                    self.get_back_led().set_led("white")
-                    reflex = True
-        #else select behavior
         #first we get througt all the behavioral systems
-        if not reflex:
-            for b_s in self.behavior_systems:
-                #if a behavioral system corresponds to the selected motivation
-                if(b_s.get_drive() == selected_mot.get_drive()):
-                    print("b_s selected: " + b_s.get_name())
-                    for b in b_s.get_behaviors():
-                        if(b.can_behave()):
-                            print("behavior selected: " + b.get_name())
-                            print ("---")
-                            b.behave()
-                            if b.get_name() == "cool-down":
-                                self.get_back_led().set_led("blue")
-                            elif b.get_name() == "seek-shade":
-                                self.get_back_led().set_led("cyan")
-                            elif b.get_name() == "eat":
-                                self.get_back_led().set_led("red")
-                            elif b.get_name() == "seek-food":
-                                self.get_back_led().set_led("magenta")
-                            else:                                
-                                self.get_back_led().set_led("green")
-                            break
+        for b_s in self.behavior_systems:
+            #if a behavioral system corresponds to the selected motivation
+            if(b_s.get_drive() == selected_mot.get_drive()):
+                print("b_s selected: " + b_s.get_name())
+                for b in b_s.get_behaviors():
+                    if(b.can_behave()):
+                        print("behavior selected: " + b.get_name())
+                        print ("---")
+                        b.behave()
+                        if b.get_name() == "cool-down":
+                            self.get_back_led().set_led("blue")
+                        elif b.get_name() == "seek-shade":
+                            self.get_back_led().set_led("cyan")
+                        elif b.get_name() == "eat":
+                            self.get_back_led().set_led("red")
+                        elif b.get_name() == "seek-food":
+                            self.get_back_led().set_led("magenta")
+                        elif b.get_name() == "withdraw":                                
+                            self.get_back_led().set_led("white")
+                        else:
+                            self.get_back_led().set_led("green")
+                        break
+
+
+        #effect on system
+        for s in self.stimuli:
+            s.incentive(self.cortisol_hormone.concentration)
+        self.motors.set_speed(int(SPEED_ROBOT + (self.pain * 400) ))
+
+
         #motor control
         if not debug:
             self.motors.update(simulation)
@@ -1618,6 +1642,7 @@ def define_khepera(simulation = False):
     #add variables
     khepera.add_variable(Variable("energy", 0.5, 1.0, 0.05, True, 0.01))
     khepera.add_variable(Variable("temperature", 0.5, 0.0, 0.05, False, 0.01))
+    khepera.add_variable(Variable("integrity", 1.0, 1.0, 0.05, True, 0))
     #add sensors 
     khepera.add_sensor(Sensor("us", N_US_SENSORS, 'G', 'g', 0, 1000, 1, 0, N_US_SENSORS, khepera))
     khepera.add_sensor(Sensor("prox", N_IR_SENSORS, 'N', 'n', 0, 1023, 0, 0, 7, khepera))
@@ -1633,17 +1658,20 @@ def define_khepera(simulation = False):
     #declare drives
     dr_increase_energy = Drive("increase-energy",True, khepera.get_var_by_name("energy"))
     dr_decrease_temperature = Drive("decrease-temperature", False, khepera.get_var_by_name("temperature"))
-    dr_avoid = Drive("avoid", True, None)
+    dr_avoid = Drive("avoid", True, khepera.get_var_by_name("integrity"))
     #add motivations and their drives
     khepera.add_motivation(Motivation("hunger", khepera.get_var_by_name("energy"), khepera.get_stimulus_by_name("food"))) 
     khepera.get_motivation_by_name("hunger").set_drive(dr_increase_energy)  
     khepera.add_motivation(Motivation("cold", khepera.get_var_by_name("temperature"), khepera.get_stimulus_by_name("shade")))
     khepera.get_motivation_by_name("cold").set_drive(dr_decrease_temperature)
+    khepera.add_motivation(ReactiveMot("danger", khepera.get_var_by_name("integrity"), khepera.get_stimulus_by_name("wall"),None))
+    khepera.get_motivation_by_name("danger").set_drive(dr_avoid)
+    khepera.get_motivation_by_name("danger").set_size_attention_grabber(2)
     #create effects
     e_increase_energy = Effect("increase-energy", khepera.get_var_by_name("energy"), False, GAIN )
     e_decrease_temperature = Effect("decrease-temperature", khepera.get_var_by_name("temperature"), True, GAIN)
-    e_decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, LOOSE)
-    e_increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, LOOSE)
+    e_decrease_energy = Effect("decrease-energy", khepera.get_var_by_name("energy"), True, LOOS)
+    e_increase_temperature = Effect("increase-temperature", khepera.get_var_by_name("temperature"), False, LOOS)
     #eat and seek food behavior
     food = BehavioralSystem("food", dr_increase_energy)
     eat = Consumatory("eat", khepera.get_motors(), khepera.get_stimulus_by_name("food"), 0.3)
@@ -1665,17 +1693,23 @@ def define_khepera(simulation = False):
     shade.add_behavior(cool_down)
     shade.add_behavior(seek_shade)
     #withdraw behavior
+    avoid = BehavioralSystem("avoid", dr_avoid)
     withdraw = Reactive("withdraw", khepera.get_motors(), khepera.get_stimulus_by_name("wall"), 0.55)
     withdraw.add_secondary_effect(e_decrease_energy)
     withdraw.add_secondary_effect(e_increase_temperature)
+    avoid.add_behavior(withdraw)
     #behavioral system
     khepera.add_behavioral_system(food)
     khepera.add_behavioral_system(shade)
-    khepera.add_reactive_system(withdraw)
+    khepera.add_behavioral_system(avoid)
     #set nociceptor
     khepera.set_nociceptor(khepera.get_sensor_by_name("prox"))
-    #set nociceptor to gland
-    khepera.set_gland()
+    khepera.get_motivation_by_name("danger").set_ReacStim(khepera.get_nociceptor())
+    #hormone
+    khepera.get_cortisol_hormone().set_nociceptor(khepera.get_nociceptor())
+    khepera.get_cortisol_hormone().set_alpha(0.025)
+    khepera.get_cortisol_hormone().set_decay_rate(0.005)
+
 
     return khepera
 
@@ -1711,10 +1745,12 @@ def display(
     print("speed      : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.speed_val])
     print("circular   : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.circular_val])
     print("nociceptor : ", ["{0:0.2f}".format(i) for i in robot.nociceptor.val])
-    print("---------------------PAIN---------------------------")
+    print("---------------------cortisol-------------------------")
     print("nociceptor mean      : ", "{0:0.2f}".format(mean(robot.nociceptor.val[:])))
-    print("gland release rate   : ", "{0:0.2f}".format(robot.paingland.release_rate))
-    print("hormone concetration : ", "{0:0.2f}".format(robot.pain_hormone.concentration))
+    print("gland release rate   : ", "{0:0.2f}".format(robot.cortisol_hormone.release_rate))
+    print("hormone concetration : ", "{0:0.2f}".format(robot.cortisol_hormone.concentration))
+    print("---------------------PAIN---------------------------")
+    print("Pain : ", "{0:0.2f}".format(robot.pain))
     print("-------------------MOTIVATIONS----------------------")
     for m in robot.motivations:
         print(m.name + " : " + "{0:0.2f}".format(m.get_intensity()))
