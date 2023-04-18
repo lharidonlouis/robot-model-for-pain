@@ -472,8 +472,10 @@ class Nociceptor:
         for i in range(len(self.data)):
             #mean of right and left circular speed
             dist[i] = (r_dist[i] + l_dist[i])/2
-            #compute distahce
+            #meaning
             self.circular_val[i] = (dist[i] + self.circular_val[i] )/ 2.0
+            #compute speed
+            self.circular_val[i] = self.circular_val[i] * ((math.pi/6.0)*5.5)/TIME_SLEEP
 
     def pain_irradiation(self):
         #
