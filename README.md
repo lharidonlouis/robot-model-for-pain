@@ -3,8 +3,8 @@ Basic model for autonomous robot in python, with pain emotion modeling. Work use
 
 ##Publication
 
-Find related publication about this work. [The effects of stress and predation on pain perception in
-robots][https://hal.science/hal-04195283/document]
+Find related publication about this work published at 2023 AFFECTIVE COMPUTING & INTELLIGENT INTERACTION conference. [The effects of stress and predation on pain perception in
+robots](https://hal.science/hal-04195283/document)
 
 ## Installation
 As the robot we use is a khepera-IV we use inbuilt server client to communicate with the robot.
