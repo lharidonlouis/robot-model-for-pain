@@ -1,6 +1,11 @@
 # Robot model for pain
 Basic model for autonomous robot in python, with pain emotion modeling. Work used to study pain and emotions with social and autonomous robots. 
 
+##Publication
+
+Find related publication about this work. [The effects of stress and predation on pain perception in
+robots][https://hal.science/hal-04195283/document]
+
 ## Installation
 As the robot we use is a khepera-IV we use inbuilt server client to communicate with the robot.
 The client was rebuilt to be able to communicate with an inside serial port and not via bluetooth
